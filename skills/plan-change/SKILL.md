@@ -116,9 +116,22 @@ const handlePlanChange = async (newPlanKey: string) => {
 4. **Old subscription stays active** until webhook confirms new payment
 5. **Cancel with `true`** (at cycle end) — gives grace period for any billing cycle overlap
 
+## Monthly ↔ Yearly: No Proration
+
+Razorpay does NOT prorate. When switching plans:
+- **Monthly → Yearly**: User pays full yearly amount immediately. Old monthly runs until webhook cancels it at cycle end. User briefly overpays (days left on monthly cycle).
+- **Yearly → Monthly**: User pays full monthly amount immediately. Old yearly runs until cycle end. User might have months of unused yearly left.
+
+**Recommendations:**
+1. **Switch at cycle end**: Show "Your yearly plan starts when your current monthly cycle ends on [date]." Store the pending switch in your DB, trigger it via a cron or the `subscription.completed` webhook.
+2. **Manual credit**: Calculate unused days on the old plan and issue a partial refund via the Refund skill.
+3. **Keep it simple**: Most SaaS just lets the user switch immediately and eats the small overlap cost. The goodwill is worth more than a few days of proration.
+
 ## Gotchas
 
 1. **No DB writes in the route**: The plan-change route only creates a Razorpay subscription. DB upsert happens in the webhook.
 2. **Customer ID reuse**: Razorpay auto-links the customer if the same email is used.
 3. **`cancel(id, true)` not `cancel(id, { at_cycle_end: true })`**: Second parameter is boolean, not object. SDK types may be misleading.
 4. **Race window**: Between new subscription creation and old cancellation, user briefly has two subscriptions. Your access-check should handle this (any active = access granted).
+5. **No proration**: Razorpay charges full plan amount. You handle credits/refunds yourself.
+6. **Downgrade to free**: If you have a free tier, just cancel the subscription at cycle end and revoke premium access when the period expires. No new subscription needed.

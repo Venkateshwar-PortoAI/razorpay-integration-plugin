@@ -161,7 +161,64 @@ export async function GET(request: Request) {
 
 ## 3. Cancel Subscription Flow
 
-Cancels at cycle end (not immediately) so the user keeps access until their paid period expires.
+Two-step cancel: collect reason + offer save → then cancel at cycle end (not immediately) so the user keeps access until their paid period expires.
+
+### Step 1: Cancellation Reasons + Save Offer
+
+Before actually cancelling, show a cancellation survey and a save offer. This is where you retain users.
+
+```typescript
+// app/api/billing/cancel-intent/route.ts
+// Step 1: User clicks "Cancel" — show reasons + save offer before actually cancelling
+
+export async function POST(request: Request) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) return new Response("Unauthorized", { status: 401 });
+
+  const { reason, feedback } = await request.json();
+
+  // Store the cancellation reason (analytics gold)
+  await db.insert(cancellationReasons).values({
+    userId: user.id,
+    reason,       // "too_expensive" | "not_using" | "missing_feature" | "switching" | "other"
+    feedback,     // free-text feedback
+    createdAt: new Date(),
+    converted: false,  // Track if the save offer worked
+  });
+
+  // Return a save offer based on reason
+  const saveOffer = getSaveOffer(reason);
+
+  return Response.json({ saveOffer });
+}
+
+function getSaveOffer(reason: string) {
+  switch (reason) {
+    case "too_expensive":
+      return {
+        type: "discount",
+        message: "How about 30% off for the next 3 months?",
+        action: "apply_discount",  // Your backend applies this manually or via Razorpay offer
+      };
+    case "not_using":
+      return {
+        type: "pause",
+        message: "Want to pause your subscription for a month instead?",
+        action: "pause_subscription",
+      };
+    case "missing_feature":
+      return {
+        type: "feedback",
+        message: "We'd love to hear what you need. Our team will reach out within 24 hours.",
+        action: "notify_team",
+      };
+    default:
+      return null;  // No save offer — proceed to cancel
+  }
+}
+```
+
+### Step 2: Actually Cancel
 
 ```typescript
 // app/api/billing/cancel/route.ts
@@ -171,18 +228,19 @@ export async function POST(request: Request) {
   const user = await getAuthenticatedUser(request);
   if (!user) return new Response("Unauthorized", { status: 401 });
 
+  const { immediate } = await request.json().catch(() => ({ immediate: false }));
+
   try {
     const subscription = await getActiveSubscriptionByUserId(user.id);
     if (!subscription) {
       return Response.json({ error: "No active subscription" }, { status: 400 });
     }
 
-    // Cancel at cycle end — boolean true, NOT an object
-    // razorpay.subscriptions.cancel(id, true) = cancel at period end
-    // razorpay.subscriptions.cancel(id, false) = cancel immediately
+    // cancel(id, true) = cancel at period end (recommended)
+    // cancel(id, false) = cancel immediately (refund scenario)
     await razorpay.subscriptions.cancel(
       subscription.razorpaySubscriptionId,
-      true
+      !immediate  // true = at cycle end, false = now
     );
 
     // Fetch updated subscription to get exact end date
@@ -195,25 +253,99 @@ export async function POST(request: Request) {
       .update(subscriptions)
       .set({
         cancelledAt: new Date(),
-        status: "cancelled", // Your internal status
+        status: immediate ? "cancelled" : "cancelling",  // "cancelling" = active until period end
         updatedAt: new Date(),
       })
       .where(eq(subscriptions.id, subscription.id));
 
     // current_end is Unix seconds
-    const accessExpiresAt = rzpSub.current_end
-      ? new Date(rzpSub.current_end * 1000).toISOString()
-      : null;
+    const accessExpiresAt = immediate
+      ? new Date().toISOString()
+      : rzpSub.current_end
+        ? new Date(rzpSub.current_end * 1000).toISOString()
+        : null;
 
     return Response.json({
       cancelled: true,
+      immediate,
       accessExpiresAt,
-      message: accessExpiresAt
-        ? `Your subscription has been cancelled. You'll continue to have access until ${new Date(rzpSub.current_end! * 1000).toLocaleDateString()}.`
-        : "Your subscription has been cancelled.",
+      message: immediate
+        ? "Your subscription has been cancelled immediately."
+        : accessExpiresAt
+          ? `Your subscription has been cancelled. You'll continue to have access until ${new Date(rzpSub.current_end! * 1000).toLocaleDateString()}.`
+          : "Your subscription has been cancelled.",
     });
   } catch (error) {
     console.error("Failed to cancel subscription:", error);
+    return Response.json({ error: "Something went wrong" }, { status: 500 });
+  }
+}
+```
+
+### Pause Subscription (Alternative to Cancel)
+
+Razorpay has a `pause` API for subscriptions. Use this for "not using right now" scenarios:
+
+```typescript
+// app/api/billing/pause/route.ts
+export async function POST(request: Request) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) return new Response("Unauthorized", { status: 401 });
+
+  try {
+    const subscription = await getActiveSubscriptionByUserId(user.id);
+    if (!subscription) {
+      return Response.json({ error: "No active subscription" }, { status: 400 });
+    }
+
+    // Pause at cycle end — user keeps access until current period expires
+    await razorpay.subscriptions.pause(
+      subscription.razorpaySubscriptionId,
+      { pause_initiated_by: "customer" }
+    );
+
+    await db
+      .update(subscriptions)
+      .set({ status: "paused", updatedAt: new Date() })
+      .where(eq(subscriptions.id, subscription.id));
+
+    return Response.json({
+      paused: true,
+      message: "Your subscription is paused. You can resume anytime.",
+    });
+  } catch (error) {
+    console.error("Failed to pause subscription:", error);
+    return Response.json({ error: "Something went wrong" }, { status: 500 });
+  }
+}
+
+// app/api/billing/resume/route.ts
+export async function POST(request: Request) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) return new Response("Unauthorized", { status: 401 });
+
+  try {
+    const subscription = await getActiveSubscriptionByUserId(user.id);
+    if (!subscription || subscription.status !== "paused") {
+      return Response.json({ error: "No paused subscription" }, { status: 400 });
+    }
+
+    await razorpay.subscriptions.resume(
+      subscription.razorpaySubscriptionId,
+      { resume_initiated_by: "customer" }
+    );
+
+    await db
+      .update(subscriptions)
+      .set({ status: "active", updatedAt: new Date() })
+      .where(eq(subscriptions.id, subscription.id));
+
+    return Response.json({
+      resumed: true,
+      message: "Your subscription is active again.",
+    });
+  } catch (error) {
+    console.error("Failed to resume subscription:", error);
     return Response.json({ error: "Something went wrong" }, { status: 500 });
   }
 }

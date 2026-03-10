@@ -203,10 +203,122 @@ if (!popup || popup.closed) {
 ### Payment Completion Detection
 Use `visibilitychange` event — fires when user switches back to your tab after completing payment in Razorpay's tab. Poll your status endpoint to check if webhook has activated the subscription.
 
+## Billing Intervals: Monthly, Yearly, and Upfront
+
+### Plan Configuration
+
+Plans are created in Razorpay Dashboard or via API. Each plan has a fixed interval (`monthly` or `yearly`) and amount. You map them in your config:
+
+```typescript
+// lib/billing/plans.ts
+export const PLANS = {
+  monthly: {
+    razorpayPlanId: process.env.RAZORPAY_PLAN_ID_MONTHLY!,
+    name: "Monthly",
+    interval: "monthly",
+    totalCount: 60,    // Max 60 charges = 5 years
+    amount: 49900,     // ₹499 in paise
+  },
+  yearly: {
+    razorpayPlanId: process.env.RAZORPAY_PLAN_ID_YEARLY!,
+    name: "Yearly",
+    interval: "yearly",
+    totalCount: 5,     // Max 5 charges = 5 years
+    amount: 499900,    // ₹4,999 in paise
+  },
+} as const;
+```
+
+### Pay Upfront (Default)
+
+By default, Razorpay charges the first payment immediately when the user completes checkout. This is the standard flow — no extra configuration needed.
+
+### Free Trial / Delayed Start
+
+Razorpay subscriptions do NOT have a native "trial" feature. Simulate it with `start_at`:
+
+```typescript
+const trialDays = 14;
+const startAt = Math.floor(Date.now() / 1000) + (trialDays * 86400);
+
+const subscription = await razorpay.subscriptions.create({
+  plan_id: planId,
+  total_count: totalCountFor(planKey),
+  quantity: 1,
+  start_at: startAt,  // First charge happens after trial
+  notes: { userId: user.id, planKey, trialEndsAt: new Date(startAt * 1000).toISOString() },
+});
+```
+
+**Gotcha**: With `start_at`, the user still goes through checkout and authorizes their card. Razorpay places a ₹0 or ₹1 auth hold. The first real charge happens at `start_at`. Track trial end in your DB to show "Trial ends on X" in the UI.
+
+### Upfront Extra Charge (Setup Fee)
+
+To charge extra on the first billing cycle (e.g., setup fee + first month):
+
+```typescript
+const subscription = await razorpay.subscriptions.create({
+  plan_id: planId,
+  total_count: totalCountFor(planKey),
+  quantity: 1,
+  // addons charge extra on the FIRST payment only
+  // This creates a one-time ₹999 setup fee on top of the plan amount
+  notes: { userId: user.id, planKey },
+});
+
+// Alternative: use offer_id for discounts on first charge
+// Offers are created in Razorpay Dashboard under Subscriptions → Offers
+```
+
+**Important**: Razorpay subscriptions don't support arbitrary upfront amounts as a parameter. For true setup fees, create a separate one-time order (see the `one-time-payment` skill) before or after the subscription.
+
+### Offer / Coupon Codes
+
+Razorpay supports subscription offers (discounts) — created in the Dashboard:
+
+```typescript
+const subscription = await razorpay.subscriptions.create({
+  plan_id: planId,
+  total_count: totalCountFor(planKey),
+  quantity: 1,
+  offer_id: "offer_XXXXX",  // Created in Razorpay Dashboard
+  notes: { userId: user.id, planKey },
+});
+```
+
+Offers can discount the first N cycles or all cycles. You cannot create offers via API — Dashboard only.
+
+## Monthly ↔ Yearly Switching
+
+**Razorpay does NOT prorate.** When a user switches from monthly to yearly (or vice versa):
+- They pay the FULL new plan amount immediately
+- The old subscription runs until the webhook cancels it (deferred cancellation pattern)
+- No credit is given for unused time on the old plan
+
+If you want to offer proration, you must calculate the credit yourself:
+
+```typescript
+// In your plan-change API route
+const daysRemaining = Math.ceil(
+  (currentPeriodEnd.getTime() - Date.now()) / 86400_000
+);
+const dailyRate = currentPlan.amount / 30; // monthly plan
+const credit = Math.round(daysRemaining * dailyRate);
+
+// Option 1: Apply credit as a note (for manual adjustment)
+// Option 2: Create a one-time refund for the prorated amount
+// Option 3: Use Razorpay's offer system to discount the first yearly charge
+```
+
+**Recommendation**: For simplicity, switch at cycle end. Show the user: "Your yearly plan starts when your current monthly cycle ends on [date]." This avoids the proration mess entirely.
+
 ## Gotchas
 
 1. **`short_url` is one-time**: You cannot retrieve it after creation. If lost, create a new subscription.
 2. **`fail_existing` TypeScript**: Cast `0 as 0 | 1` — Razorpay SDK types are wrong.
 3. **`notify_info` conditional**: Only include if you have email/phone. Empty object causes errors.
-4. **`total_count`**: Monthly = 60 (5 years), Yearly = 5. This is max renewals, not billing cycles.
+4. **`total_count`**: Monthly = 60 (5 years max), Yearly = 5 (5 years max). This is max renewals, not billing cycles.
 5. **Customer without phone**: Omit the `contact` field entirely — don't pass null or empty string.
+6. **No proration**: Razorpay charges the full plan amount on every cycle. There is no built-in proration for mid-cycle plan changes.
+7. **No native trials**: Use `start_at` to delay the first real charge. Card is authorized at checkout.
+8. **Offers are Dashboard-only**: You cannot create discount offers via API. Create them in Razorpay Dashboard → Subscriptions → Offers.
