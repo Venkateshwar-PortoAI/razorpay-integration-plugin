@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280">
+<title>Razorpay Integration Plugin – Social Preview</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    width: 1280px;
+    height: 640px;
+    margin: 0;
+    overflow: hidden;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0d1117;
+    color: #e6edf3;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+  /* Subtle grid pattern */
+  body::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+  }
+
+  /* Soft radial glow behind content */
+  body::after {
+    content: '';
+    position: absolute;
+    top: 38%;
+    left: 50%;
+    width: 800px;
+    height: 400px;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(ellipse, rgba(37,99,235,0.10) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    width: 100%;
+    height: 100%;
+    padding: 48px 80px 40px;
+  }
+
+  /* Top-left branding */
+  .brand {
+    position: absolute;
+    top: 48px;
+    left: 80px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: #484f58;
+    text-transform: uppercase;
+  }
+
+  /* Main content, vertically centered */
+  .center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .title {
+    font-size: 64px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    text-align: center;
+    background: linear-gradient(135deg, #ffffff 0%, #c9d1d9 50%, #ffffff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 32px rgba(255,255,255,0.08));
+  }
+
+  .subtitle {
+    font-size: 36px;
+    font-weight: 500;
+    color: #2563eb;
+    letter-spacing: -0.01em;
+  }
+
+  .tagline {
+    font-size: 18px;
+    font-weight: 500;
+    color: #484f58;
+    letter-spacing: 0.04em;
+    margin-top: 4px;
+  }
+
+  .pills {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .pill {
+    font-size: 13px;
+    font-weight: 500;
+    color: #8b949e;
+    border: 1px solid #21262d;
+    border-radius: 9999px;
+    padding: 5px 16px;
+    background: rgba(255,255,255,0.02);
+    white-space: nowrap;
+  }
+
+  /* Bottom link */
+  .footer {
+    font-size: 14px;
+    color: #30363d;
+    letter-spacing: 0.02em;
+    padding-bottom: 4px;
+  }
+</style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="brand">PortoAI</div>
+
+    <div class="center">
+      <div class="title">Razorpay Integration Plugin</div>
+      <div class="subtitle">for Claude Code</div>
+      <div class="tagline">14 Skills &middot; 9 Agents &middot; Production-Grade</div>
+      <div class="pills">
+        <span class="pill">Webhooks</span>
+        <span class="pill">Subscriptions</span>
+        <span class="pill">GST Invoices</span>
+        <span class="pill">Refunds</span>
+        <span class="pill">Dunning</span>
+        <span class="pill">Stripe Migration</span>
+      </div>
+    </div>
+
+    <div class="footer">github.com/Venkateshwar-PortoAI</div>
+  </div>
+</body>
+</html>
