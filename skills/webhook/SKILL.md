@@ -1,5 +1,5 @@
 ---
-description: Build a production-grade Razorpay webhook handler — signature verification, idempotency, 12+ event types, race condition handling, optimistic locking. Use when implementing webhook processing for payments or subscriptions.
+description: Build a production-grade Razorpay webhook handler — signature verification, idempotency, 12+ event types, race condition handling. Use when the user asks to "handle webhooks", "build a webhook handler", "process payment events", "verify webhook signatures", or needs to react to Razorpay subscription and payment lifecycle events.
 argument-hint: "[subscriptions|payments|all]"
 ---
 

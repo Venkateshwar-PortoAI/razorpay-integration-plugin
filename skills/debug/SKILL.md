@@ -1,5 +1,5 @@
 ---
-description: Debug common Razorpay integration issues — webhook failures, signature mismatches, subscription state problems, SDK quirks. Use when Razorpay integration is broken or behaving unexpectedly.
+description: Debug common Razorpay integration issues — webhook failures, signature mismatches, subscription state problems, SDK quirks. Use when the user says "webhook not working", "signature failing", "razorpay broken", "payment not going through", or needs to troubleshoot any Razorpay integration problem.
 argument-hint: "[webhook|signature|subscription|payment]"
 ---
 

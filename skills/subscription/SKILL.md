@@ -1,5 +1,5 @@
 ---
-description: Create Razorpay subscription checkout — hosted checkout flow, customer upsert, pending dedup, popup-blocked fallback. Use when implementing subscription billing or recurring payments.
+description: Create Razorpay subscription checkout — hosted checkout, customer upsert, pending dedup, popup-blocked fallback. Use when the user asks to "add subscription billing", "set up recurring payments", "create hosted checkout", "implement subscriptions", or needs a checkout flow for recurring charges.
 argument-hint: "[monthly|yearly|setup]"
 ---
 

@@ -1,5 +1,5 @@
 ---
-description: Implement one-time payments with Razorpay — orders, invoices, HMAC verification, day passes, credits. Use when building single purchases, day passes, or credit-based billing.
+description: Implement one-time payments with Razorpay — orders, invoices, HMAC verification, day passes, credits. Use when the user asks to "add a one-time purchase", "implement single payment", "create a day pass", "sell credits", or needs a non-recurring payment flow.
 argument-hint: "[order|invoice]"
 ---
 

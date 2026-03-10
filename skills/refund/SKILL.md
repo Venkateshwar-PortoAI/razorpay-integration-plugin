@@ -1,5 +1,5 @@
 ---
-description: Implement Razorpay refunds — full refunds, partial refunds, refund webhooks, status tracking. Use when implementing refund flows or handling refund-related issues.
+description: Implement Razorpay refunds — full refunds, partial refunds, refund webhooks, status tracking. Use when the user asks to "process a refund", "refund a payment", "issue a partial refund", "handle refund webhooks", or needs to return money to customers.
 argument-hint: "[full|partial|webhook]"
 ---
 

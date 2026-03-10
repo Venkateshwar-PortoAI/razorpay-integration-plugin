@@ -1,0 +1,666 @@
+---
+name: customer-portal
+description: Build a self-service billing portal — view subscription, download invoices, cancel, update payment method. Use when the user asks to "build a billing page", "create a customer portal", "add self-service billing", "let users manage subscriptions", or needs a customer-facing account settings page.
+argument-hint: "[billing-page|invoices|cancel]"
+---
+
+# Self-Service Customer Billing Portal
+
+Build a complete customer-facing billing portal with Razorpay. Unlike Stripe, Razorpay has no built-in customer portal — you build each piece yourself.
+
+Covers: billing status, payment history, cancel/reactivate, invoice download, and payment method update.
+
+
+## 1. Billing Status API Route
+
+Returns the current subscription state for display on the billing page.
+
+```typescript
+// app/api/billing/status/route.ts
+import { razorpay } from "@/lib/razorpay";
+
+export async function GET(request: Request) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) return new Response("Unauthorized", { status: 401 });
+
+  try {
+    const subscription = await getActiveSubscriptionByUserId(user.id);
+    if (!subscription) {
+      return Response.json({ active: false, subscription: null });
+    }
+
+    // Fetch fresh details from Razorpay (cache this — plan details rarely change)
+    const rzpSub = await razorpay.subscriptions.fetch(
+      subscription.razorpaySubscriptionId
+    );
+
+    // Fetch plan details for display name and amount
+    const plan = await razorpay.plans.fetch(rzpSub.plan_id);
+
+    // Fetch recent payments for this subscription
+    const payments = await db
+      .select()
+      .from(paymentsTable)
+      .where(eq(paymentsTable.subscriptionId, subscription.id))
+      .orderBy(desc(paymentsTable.createdAt))
+      .limit(5);
+
+    // Fetch pending invoices if any
+    let pendingInvoices: any[] = [];
+    try {
+      const invoices = await razorpay.invoices.all({
+        subscription_id: subscription.razorpaySubscriptionId,
+        status: "issued",
+      });
+      pendingInvoices = invoices.items || [];
+    } catch {
+      // Invoices endpoint may not return results for all subscriptions
+    }
+
+    return Response.json({
+      active: ["active", "authenticated"].includes(rzpSub.status),
+      subscription: {
+        planName: plan.item.name,
+        status: rzpSub.status,
+        // current_period_end is Unix seconds — convert for display
+        nextBillingDate: rzpSub.current_end
+          ? new Date(rzpSub.current_end * 1000).toISOString()
+          : null,
+        amountPaise: plan.item.amount,
+        currency: plan.item.currency,
+        cancelledAt: rzpSub.ended_at
+          ? new Date(rzpSub.ended_at * 1000).toISOString()
+          : null,
+      },
+      recentPayments: payments,
+      pendingInvoices: pendingInvoices.map((inv: any) => ({
+        id: inv.id,
+        amountPaise: inv.amount,
+        status: inv.status,
+        shortUrl: inv.short_url,
+        issuedAt: inv.issued_at
+          ? new Date(inv.issued_at * 1000).toISOString()
+          : null,
+      })),
+    });
+  } catch (error) {
+    console.error("Failed to fetch billing status:", error);
+    return Response.json({ error: "Something went wrong" }, { status: 500 });
+  }
+}
+```
+
+
+## 2. Payment History API Route
+
+Paginated payment history with receipt/invoice links.
+
+```typescript
+// app/api/billing/payments/route.ts
+import { razorpay } from "@/lib/razorpay";
+
+export async function GET(request: Request) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) return new Response("Unauthorized", { status: 401 });
+
+  const { searchParams } = new URL(request.url);
+  const page = parseInt(searchParams.get("page") || "1", 10);
+  const limit = Math.min(parseInt(searchParams.get("limit") || "10", 10), 50);
+  const offset = (page - 1) * limit;
+
+  try {
+    const subscription = await getActiveSubscriptionByUserId(user.id);
+    if (!subscription) {
+      return Response.json({ payments: [], total: 0 });
+    }
+
+    // Fetch from DB (populated by webhooks)
+    const [payments, countResult] = await Promise.all([
+      db
+        .select()
+        .from(paymentsTable)
+        .where(eq(paymentsTable.userId, user.id))
+        .orderBy(desc(paymentsTable.createdAt))
+        .limit(limit)
+        .offset(offset),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(paymentsTable)
+        .where(eq(paymentsTable.userId, user.id)),
+    ]);
+
+    const total = countResult[0]?.count ?? 0;
+
+    // Enrich with invoice links where available
+    const enrichedPayments = payments.map((payment) => ({
+      id: payment.id,
+      date: payment.createdAt,
+      amountPaise: payment.amountPaise,
+      currency: payment.currency || "INR",
+      status: payment.status,
+      method: payment.method, // "card", "upi", "netbanking", etc.
+      // Invoice may not exist for all payments — handle gracefully
+      invoiceUrl: payment.razorpayInvoiceId
+        ? `/api/billing/invoice/${payment.razorpayInvoiceId}`
+        : null,
+    }));
+
+    return Response.json({
+      payments: enrichedPayments,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    });
+  } catch (error) {
+    console.error("Failed to fetch payment history:", error);
+    return Response.json({ error: "Something went wrong" }, { status: 500 });
+  }
+}
+```
+
+
+## 3. Cancel Subscription Flow
+
+Cancels at cycle end (not immediately) so the user keeps access until their paid period expires.
+
+```typescript
+// app/api/billing/cancel/route.ts
+import { razorpay } from "@/lib/razorpay";
+
+export async function POST(request: Request) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) return new Response("Unauthorized", { status: 401 });
+
+  try {
+    const subscription = await getActiveSubscriptionByUserId(user.id);
+    if (!subscription) {
+      return Response.json({ error: "No active subscription" }, { status: 400 });
+    }
+
+    // Cancel at cycle end — boolean true, NOT an object
+    // razorpay.subscriptions.cancel(id, true) = cancel at period end
+    // razorpay.subscriptions.cancel(id, false) = cancel immediately
+    await razorpay.subscriptions.cancel(
+      subscription.razorpaySubscriptionId,
+      true
+    );
+
+    // Fetch updated subscription to get exact end date
+    const rzpSub = await razorpay.subscriptions.fetch(
+      subscription.razorpaySubscriptionId
+    );
+
+    // Update DB — subscription remains "active" until period ends
+    await db
+      .update(subscriptions)
+      .set({
+        cancelledAt: new Date(),
+        status: "cancelled", // Your internal status
+        updatedAt: new Date(),
+      })
+      .where(eq(subscriptions.id, subscription.id));
+
+    // current_end is Unix seconds
+    const accessExpiresAt = rzpSub.current_end
+      ? new Date(rzpSub.current_end * 1000).toISOString()
+      : null;
+
+    return Response.json({
+      cancelled: true,
+      accessExpiresAt,
+      message: accessExpiresAt
+        ? `Your subscription has been cancelled. You'll continue to have access until ${new Date(rzpSub.current_end! * 1000).toLocaleDateString()}.`
+        : "Your subscription has been cancelled.",
+    });
+  } catch (error) {
+    console.error("Failed to cancel subscription:", error);
+    return Response.json({ error: "Something went wrong" }, { status: 500 });
+  }
+}
+```
+
+
+## 4. Invoice / Receipt Download
+
+Razorpay generates invoices for subscriptions automatically. Fetch and redirect to the Razorpay-hosted invoice page.
+
+```typescript
+// app/api/billing/invoice/[invoiceId]/route.ts
+import { razorpay } from "@/lib/razorpay";
+
+export async function GET(
+  request: Request,
+  { params }: { params: { invoiceId: string } }
+) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) return new Response("Unauthorized", { status: 401 });
+
+  try {
+    const invoice = await razorpay.invoices.fetch(params.invoiceId);
+
+    // Verify this invoice belongs to the user's subscription
+    const subscription = await getSubscriptionByRazorpayId(
+      invoice.subscription_id
+    );
+    if (!subscription || subscription.userId !== user.id) {
+      return new Response("Not found", { status: 404 });
+    }
+
+    // Razorpay invoices have a short_url — redirect user to hosted invoice
+    if (invoice.short_url) {
+      return Response.redirect(invoice.short_url, 302);
+    }
+
+    // Fallback: return invoice data for custom PDF generation
+    return Response.json({
+      invoiceId: invoice.id,
+      amountPaise: invoice.amount,
+      currency: invoice.currency,
+      status: invoice.status,
+      issuedAt: invoice.issued_at
+        ? new Date(invoice.issued_at * 1000).toISOString()
+        : null,
+      customerDetails: invoice.customer_details,
+      lineItems: invoice.line_items,
+      // Use this data to generate a custom GST invoice PDF if needed
+    });
+  } catch (error) {
+    console.error("Failed to fetch invoice:", error);
+    return Response.json({ error: "Invoice not found" }, { status: 404 });
+  }
+}
+```
+
+
+## 5. Update Payment Method
+
+Razorpay does not support updating the card on an existing subscription. The pattern is: create a new subscription with the same plan, then cancel the old one after payment succeeds (deferred cancellation).
+
+```typescript
+// app/api/billing/update-payment-method/route.ts
+import { razorpay } from "@/lib/razorpay";
+
+export async function POST(request: Request) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) return new Response("Unauthorized", { status: 401 });
+
+  try {
+    const current = await getActiveSubscriptionByUserId(user.id);
+    if (!current) {
+      return Response.json({ error: "No active subscription" }, { status: 400 });
+    }
+
+    // Create a NEW subscription with the same plan
+    // The webhook will cancel the old one after payment succeeds
+    const subscription = await razorpay.subscriptions.create({
+      plan_id: current.razorpayPlanId,
+      total_count: totalCountFor(current.planKey),
+      quantity: 1,
+      customer_notify: 1,
+      notes: {
+        userId: user.id,
+        planKey: current.planKey,
+        replacesSubscription: current.razorpaySubscriptionId, // Signals webhook
+        reason: "payment_method_update",
+      },
+    });
+
+    // DO NOT cancel old subscription here — webhook handles it
+    // See plan-change skill for the webhook handler pattern
+
+    return Response.json({
+      shortUrl: subscription.short_url,
+      subscriptionId: subscription.id,
+      message:
+        "You'll be redirected to complete payment with your new card. Your current subscription will transfer automatically.",
+    });
+  } catch (error) {
+    console.error("Failed to update payment method:", error);
+    return Response.json({ error: "Something went wrong" }, { status: 500 });
+  }
+}
+```
+
+
+## 6. Reactivation After Cancellation
+
+Cancelled subscriptions cannot be reactivated in Razorpay. Create a fresh subscription with the same plan.
+
+```typescript
+// app/api/billing/resubscribe/route.ts
+import { razorpay } from "@/lib/razorpay";
+
+export async function POST(request: Request) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) return new Response("Unauthorized", { status: 401 });
+
+  const { planKey } = await request.json();
+
+  try {
+    // Verify no active subscription exists
+    const existing = await getActiveSubscriptionByUserId(user.id);
+    if (existing) {
+      return Response.json(
+        { error: "You already have an active subscription" },
+        { status: 409 }
+      );
+    }
+
+    // Create or reuse Razorpay customer
+    const customer = await razorpay.customers.create({
+      name: user.name || "Customer",
+      email: user.email,
+      ...(user.phone ? { contact: user.phone.replace(/[^\d+]/g, "") } : {}),
+      fail_existing: 0 as 0 | 1,
+    });
+
+    // Create fresh subscription
+    const planId = planIdFor(planKey);
+    const subscription = await razorpay.subscriptions.create({
+      plan_id: planId,
+      total_count: totalCountFor(planKey),
+      quantity: 1,
+      customer_notify: 1,
+      notes: {
+        userId: user.id,
+        planKey,
+      },
+    });
+
+    return Response.json({
+      shortUrl: subscription.short_url,
+      subscriptionId: subscription.id,
+    });
+  } catch (error) {
+    console.error("Failed to resubscribe:", error);
+    return Response.json({ error: "Something went wrong" }, { status: 500 });
+  }
+}
+```
+
+
+## 7. Client-Side Billing Page Component
+
+```typescript
+// components/billing-portal.tsx
+"use client";
+import { useState, useEffect } from "react";
+
+interface BillingStatus {
+  active: boolean;
+  subscription: {
+    planName: string;
+    status: string;
+    nextBillingDate: string | null;
+    amountPaise: number;
+    currency: string;
+    cancelledAt: string | null;
+  } | null;
+  recentPayments: Payment[];
+  pendingInvoices: Invoice[];
+}
+
+interface Payment {
+  id: string;
+  date: string;
+  amountPaise: number;
+  currency: string;
+  status: string;
+  method: string;
+  invoiceUrl: string | null;
+}
+
+interface Invoice {
+  id: string;
+  amountPaise: number;
+  status: string;
+  shortUrl: string;
+  issuedAt: string | null;
+}
+
+export function BillingPortal() {
+  const [billing, setBilling] = useState<BillingStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
+  useEffect(() => {
+    fetchBillingStatus();
+  }, []);
+
+  const fetchBillingStatus = async () => {
+    try {
+      const res = await fetch("/api/billing/status");
+      const data = await res.json();
+      setBilling(data);
+    } catch {
+      console.error("Failed to load billing status");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    setCancelLoading(true);
+    try {
+      const res = await fetch("/api/billing/cancel", { method: "POST" });
+      const data = await res.json();
+      if (data.cancelled) {
+        alert(data.message);
+        setShowCancelConfirm(false);
+        fetchBillingStatus(); // Refresh
+      } else {
+        alert(data.error || "Failed to cancel");
+      }
+    } catch {
+      alert("Something went wrong");
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
+  const handleUpdatePaymentMethod = async () => {
+    const res = await fetch("/api/billing/update-payment-method", {
+      method: "POST",
+    });
+    const data = await res.json();
+    if (data.shortUrl) {
+      window.open(data.shortUrl, "_blank");
+    }
+  };
+
+  const handleResubscribe = async (planKey: string) => {
+    const res = await fetch("/api/billing/resubscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ planKey }),
+    });
+    const data = await res.json();
+    if (data.shortUrl) {
+      window.open(data.shortUrl, "_blank");
+    }
+  };
+
+  if (loading) return <div>Loading billing details...</div>;
+  if (!billing) return <div>Failed to load billing details.</div>;
+
+  const sub = billing.subscription;
+  const isCancelled = sub?.status === "cancelled" || sub?.cancelledAt;
+
+  return (
+    <div style={{ maxWidth: 700, margin: "0 auto" }}>
+      <h2>Billing & Subscription</h2>
+
+      {/* ── Current Plan ─────────────────────────────── */}
+      {sub ? (
+        <div style={{ padding: 16, border: "1px solid #e5e7eb", borderRadius: 8, marginBottom: 24 }}>
+          <h3>{sub.planName}</h3>
+          <p>
+            Status:{" "}
+            <strong>
+              {isCancelled ? "Cancelled" : sub.status}
+            </strong>
+          </p>
+          <p>
+            Amount: {sub.currency}{" "}
+            {(sub.amountPaise / 100).toFixed(2)} / cycle
+          </p>
+          {sub.nextBillingDate && !isCancelled && (
+            <p>
+              Next billing date:{" "}
+              {new Date(sub.nextBillingDate).toLocaleDateString()}
+            </p>
+          )}
+          {isCancelled && sub.nextBillingDate && (
+            <p style={{ color: "#b45309" }}>
+              Access until:{" "}
+              {new Date(sub.nextBillingDate).toLocaleDateString()}
+            </p>
+          )}
+
+          {/* Actions */}
+          <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
+            {!isCancelled && (
+              <>
+                <button onClick={handleUpdatePaymentMethod}>
+                  Update Payment Method
+                </button>
+                <button
+                  onClick={() => setShowCancelConfirm(true)}
+                  style={{ color: "#dc2626" }}
+                >
+                  Cancel Subscription
+                </button>
+              </>
+            )}
+            {isCancelled && (
+              <button onClick={() => handleResubscribe(sub.planName)}>
+                Resubscribe
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <p>No active subscription.</p>
+      )}
+
+      {/* ── Cancel Confirmation Modal ────────────────── */}
+      {showCancelConfirm && (
+        <div
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          <div style={{ background: "white", padding: 24, borderRadius: 12, maxWidth: 400 }}>
+            <h3>Cancel Subscription?</h3>
+            <p>
+              Your subscription will remain active until the end of your current
+              billing period
+              {sub?.nextBillingDate && (
+                <strong>
+                  {" "}({new Date(sub.nextBillingDate).toLocaleDateString()})
+                </strong>
+              )}
+              . After that, you will lose access.
+            </p>
+            <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+              <button onClick={() => setShowCancelConfirm(false)}>
+                Keep Subscription
+              </button>
+              <button
+                onClick={handleCancel}
+                disabled={cancelLoading}
+                style={{ color: "#dc2626" }}
+              >
+                {cancelLoading ? "Cancelling..." : "Yes, Cancel"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Pending Invoices ─────────────────────────── */}
+      {billing.pendingInvoices.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <h3>Pending Invoices</h3>
+          {billing.pendingInvoices.map((inv) => (
+            <div
+              key={inv.id}
+              style={{
+                display: "flex", justifyContent: "space-between",
+                padding: 12, border: "1px solid #fde68a",
+                borderRadius: 8, marginBottom: 8, background: "#fffbeb",
+              }}
+            >
+              <span>
+                {inv.issuedAt
+                  ? new Date(inv.issuedAt).toLocaleDateString()
+                  : "Pending"}{" "}
+                — INR {(inv.amountPaise / 100).toFixed(2)}
+              </span>
+              <a href={inv.shortUrl} target="_blank" rel="noopener">
+                Pay Now
+              </a>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Payment History ──────────────────────────── */}
+      <h3>Payment History</h3>
+      {billing.recentPayments.length === 0 ? (
+        <p>No payments yet.</p>
+      ) : (
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ borderBottom: "2px solid #e5e7eb", textAlign: "left" }}>
+              <th style={{ padding: 8 }}>Date</th>
+              <th style={{ padding: 8 }}>Amount</th>
+              <th style={{ padding: 8 }}>Method</th>
+              <th style={{ padding: 8 }}>Status</th>
+              <th style={{ padding: 8 }}>Invoice</th>
+            </tr>
+          </thead>
+          <tbody>
+            {billing.recentPayments.map((payment) => (
+              <tr key={payment.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                <td style={{ padding: 8 }}>
+                  {new Date(payment.date).toLocaleDateString()}
+                </td>
+                <td style={{ padding: 8 }}>
+                  {payment.currency} {(payment.amountPaise / 100).toFixed(2)}
+                </td>
+                <td style={{ padding: 8 }}>{payment.method || "—"}</td>
+                <td style={{ padding: 8 }}>{payment.status}</td>
+                <td style={{ padding: 8 }}>
+                  {payment.invoiceUrl ? (
+                    <a href={payment.invoiceUrl} target="_blank" rel="noopener">
+                      Download
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+```
+
+
+## Gotchas
+
+1. **`current_end` is Unix seconds**: Razorpay returns timestamps as Unix seconds, not milliseconds. Multiply by 1000 before passing to `new Date()`.
+2. **Cancelled subscriptions stay active until period end**: After calling `cancel(id, true)`, the subscription status may still show `active` on Razorpay's side until the period ends. Show the user their access expiry date clearly.
+3. **Razorpay invoices may not exist for all payments**: Not every subscription payment generates an invoice object in the Razorpay API. Handle missing invoices gracefully — show "No invoice available" instead of erroring.
+4. **Rate limit your billing status endpoint**: The `/api/billing/status` route calls the Razorpay API on every request. Add caching (e.g., 60-second TTL) or read from your DB instead of hitting Razorpay directly.
+5. **Cache plan details**: Plan name, amount, and currency almost never change. Fetch once and cache, or store in your DB when the subscription is created.
+6. **`cancel(id, true)` not `cancel(id, { at_cycle_end: true })`**: The second parameter to `razorpay.subscriptions.cancel()` is a boolean, not an options object. The SDK types may be misleading.
+7. **Cancelled subscriptions cannot be reactivated**: There is no "resume" API. You must create a brand new subscription and take the user through checkout again.
+8. **Payment method update = new subscription**: Razorpay does not support swapping cards on an existing subscription. Use the deferred cancellation pattern (create new, webhook cancels old). See the `plan-change` skill for the webhook handler.
+9. **Amount is always in paise**: 100 paise = 1 INR. Display as `(amountPaise / 100).toFixed(2)` everywhere.

@@ -1,17 +1,16 @@
 {
   "name": "razorpay",
-  "description": "Production-grade Razorpay integration for Next.js — subscriptions, webhooks, plan changes, one-time payments, GST invoicing. Battle-tested patterns from production use.",
+  "description": "Full-lifecycle Razorpay integration plugin with 14 skills and agents — from initial setup through subscriptions, webhooks, plan changes, one-time payments, refunds, customer portal, admin ops, metrics, dunning, local testing, go-live hardening, Stripe migration, and debugging. Covers setup through daily operations, migration, and troubleshooting.",
   "version": "1.0.0",
   "author": {
-    "name": "Contributors",
-    "url": "https://github.com/venkatporto/razorpay-integration-plugin"
+    "name": "Contributors"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/venkatporto/razorpay-integration-plugin"
+    "url": "https://github.com/AlphaCoderNotAI/razorpay-integration-plugin"
   },
   "license": "MIT",
-  "homepage": "https://github.com/venkatporto/razorpay-integration-plugin",
+  "homepage": "https://github.com/AlphaCoderNotAI/razorpay-integration-plugin",
   "keywords": [
     "razorpay",
     "payments",

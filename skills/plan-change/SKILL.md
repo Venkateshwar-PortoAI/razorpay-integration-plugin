@@ -1,5 +1,5 @@
 ---
-description: Implement subscription plan changes (upgrade/downgrade) with Razorpay — deferred cancellation pattern, no downtime. Use when building plan switching or upgrade flows.
+description: Implement subscription plan changes with Razorpay — deferred cancellation pattern, no downtime. Use when the user asks to "upgrade plan", "downgrade subscription", "switch plans", "change billing plan", or needs to move users between subscription tiers without service interruption.
 ---
 
 # Razorpay Plan Change (Upgrade / Downgrade)

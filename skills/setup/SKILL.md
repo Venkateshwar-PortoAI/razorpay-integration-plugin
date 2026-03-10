@@ -1,5 +1,5 @@
 ---
-description: Set up Razorpay integration in a Next.js project — SDK, environment variables, database schema, plan configuration. Use when starting Razorpay integration or setting up billing from scratch.
+description: Set up Razorpay integration — SDK, env vars, database schema, plan configuration. Use when the user asks to "set up razorpay", "add payments to my app", "initialize billing", "configure razorpay", or is starting a new Razorpay integration from scratch.
 argument-hint: "[framework]"
 ---
 
