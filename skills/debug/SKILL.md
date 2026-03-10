@@ -1,8 +1,6 @@
 ---
-name: debug
 description: Debug common Razorpay integration issues — webhook failures, signature mismatches, subscription state problems, SDK quirks. Use when Razorpay integration is broken or behaving unexpectedly.
 argument-hint: "[webhook|signature|subscription|payment]"
-disable-model-invocation: true
 ---
 
 # Razorpay Debugging Guide
@@ -159,6 +157,112 @@ curl -u rzp_test_key:rzp_test_secret \
   https://api.razorpay.com/v1/subscriptions/sub_xxxxx
 ```
 
----
+## Mock Webhook Payloads for Local Testing
 
-*Powered by [portoai.co](https://portoai.co) — battle-tested in production with thousands of Indian subscribers.*
+Use these sample payloads to test your webhook handler locally without triggering real Razorpay events.
+
+### subscription.activated
+
+Sent when a new subscription is successfully activated after first payment.
+
+```json
+{
+  "event": "subscription.activated",
+  "payload": {
+    "subscription": {
+      "entity": {
+        "id": "sub_test123",
+        "plan_id": "plan_test456",
+        "customer_id": "cust_test789",
+        "status": "active",
+        "current_period_end": 1700000000,
+        "notes": { "userId": "user_123", "planKey": "pro_monthly" }
+      }
+    },
+    "payment": {
+      "entity": {
+        "id": "pay_test111",
+        "amount": 99900,
+        "currency": "INR",
+        "subscription_id": "sub_test123"
+      }
+    }
+  }
+}
+```
+
+### subscription.charged
+
+Sent on each successful renewal payment.
+
+```json
+{
+  "event": "subscription.charged",
+  "payload": {
+    "subscription": {
+      "entity": {
+        "id": "sub_test123",
+        "plan_id": "plan_test456",
+        "customer_id": "cust_test789",
+        "status": "active",
+        "current_period_end": 1702592000,
+        "paid_count": 2,
+        "notes": { "userId": "user_123", "planKey": "pro_monthly" }
+      }
+    },
+    "payment": {
+      "entity": {
+        "id": "pay_test222",
+        "amount": 99900,
+        "currency": "INR",
+        "subscription_id": "sub_test123",
+        "method": "card"
+      }
+    }
+  }
+}
+```
+
+### payment.failed
+
+Sent when a payment attempt fails (e.g., insufficient funds, card declined).
+
+```json
+{
+  "event": "payment.failed",
+  "payload": {
+    "payment": {
+      "entity": {
+        "id": "pay_test333",
+        "amount": 99900,
+        "currency": "INR",
+        "status": "failed",
+        "subscription_id": "sub_test123",
+        "error_code": "BAD_REQUEST_ERROR",
+        "error_description": "Payment processing failed because of insufficient balance",
+        "error_reason": "insufficient_funds"
+      }
+    }
+  }
+}
+```
+
+### Testing with curl
+
+```bash
+# Test webhook locally (skip signature verification in test mode or use a known test secret)
+curl -X POST http://localhost:3000/api/billing/webhook \
+  -H "Content-Type: application/json" \
+  -H "x-razorpay-event-id: evt_test_001" \
+  -H "x-razorpay-signature: <generate with your webhook secret>" \
+  -d '<payload>'
+```
+
+### Generating a test signature
+
+```bash
+# Generate test signature
+echo -n '<raw-json-payload>' | openssl dgst -sha256 -hmac "your_webhook_secret"
+```
+
+Replace `<raw-json-payload>` with the exact JSON string you pass as the `-d` body (no trailing newline). Use the hex output as the `x-razorpay-signature` header value.

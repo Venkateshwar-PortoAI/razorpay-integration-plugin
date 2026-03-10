@@ -1,5 +1,4 @@
 ---
-name: subscription
 description: Create Razorpay subscription checkout — hosted checkout flow, customer upsert, pending dedup, popup-blocked fallback. Use when implementing subscription billing or recurring payments.
 argument-hint: "[monthly|yearly|setup]"
 ---
@@ -31,74 +30,79 @@ export async function POST(request: Request) {
 
   const { planKey } = await request.json();
 
-  // 2. Check for pending subscription (prevent duplicates)
-  const existing = await getSubscriptionByUserId(user.id);
-  if (existing) {
-    const isPending = ["created", "authenticated", "pending"].includes(existing.status);
-    const isRecent = Date.now() - existing.createdAt.getTime() < 3600_000; // 1 hour
+  try {
+    // 2. Check for pending subscription (prevent duplicates)
+    const existing = await getSubscriptionByUserId(user.id);
+    if (existing) {
+      const isPending = ["created", "authenticated", "pending"].includes(existing.status);
+      const isRecent = Date.now() - existing.createdAt.getTime() < 3600_000; // 1 hour
 
-    if (isPending && isRecent) {
-      // Return existing checkout URL — user may have abandoned and returned
-      return Response.json({
-        shortUrl: null, // Cannot retrieve short_url after creation
-        subscriptionId: existing.razorpaySubscriptionId,
-        error: "Subscription already pending. Complete existing checkout or wait 1 hour.",
-      }, { status: 409 });
-    }
+      if (isPending && isRecent) {
+        // Return existing checkout URL — user may have abandoned and returned
+        return Response.json({
+          shortUrl: null, // Cannot retrieve short_url after creation
+          subscriptionId: existing.razorpaySubscriptionId,
+          error: "Subscription already pending. Complete existing checkout or wait 1 hour.",
+        }, { status: 409 });
+      }
 
-    if (isPending && !isRecent) {
-      // Stale pending — cancel on Razorpay (best-effort)
-      try {
-        await razorpay.subscriptions.cancel(existing.razorpaySubscriptionId, false);
-      } catch {
-        // Ignore — may already be cancelled
+      if (isPending && !isRecent) {
+        // Stale pending — cancel on Razorpay (best-effort)
+        try {
+          await razorpay.subscriptions.cancel(existing.razorpaySubscriptionId, false);
+        } catch {
+          // Ignore — may already be cancelled
+        }
       }
     }
-  }
 
-  // 3. Create or reuse Razorpay customer
-  //    fail_existing: 0 = return existing customer if email matches (upsert)
-  const customer = await razorpay.customers.create({
-    name: user.name || "Customer",
-    email: user.email,
-    ...(user.phone ? { contact: user.phone.replace(/[^\d+]/g, "") } : {}),
-    fail_existing: 0 as 0 | 1,  // TypeScript SDK quirk — needs explicit cast
-  });
+    // 3. Create or reuse Razorpay customer
+    //    fail_existing: 0 = return existing customer if email matches (upsert)
+    const customer = await razorpay.customers.create({
+      name: user.name || "Customer",
+      email: user.email,
+      ...(user.phone ? { contact: user.phone.replace(/[^\d+]/g, "") } : {}),
+      fail_existing: 0 as 0 | 1,  // TypeScript SDK quirk — needs explicit cast
+    });
 
-  // 4. Create subscription
-  const planId = planIdFor(planKey);
-  const subscription = await razorpay.subscriptions.create({
-    plan_id: planId,
-    total_count: totalCountFor(planKey),
-    quantity: 1,
-    customer_notify: 1,
-    notes: {
+    // 4. Create subscription
+    const planId = planIdFor(planKey);
+    const subscription = await razorpay.subscriptions.create({
+      plan_id: planId,
+      total_count: totalCountFor(planKey),
+      quantity: 1,
+      customer_notify: 1,
+      notes: {
+        userId: user.id,
+        planKey,
+      },
+      ...(user.email ? {
+        notify_info: {
+          notify_email: user.email,
+          ...(user.phone ? { notify_phone: user.phone.replace(/[^\d+]/g, "") } : {}),
+        },
+      } : {}),
+    });
+
+    // 5. Save to database
+    await createSubscriptionRecord({
       userId: user.id,
       planKey,
-    },
-    ...(user.email ? {
-      notify_info: {
-        notify_email: user.email,
-        ...(user.phone ? { notify_phone: user.phone.replace(/[^\d+]/g, "") } : {}),
-      },
-    } : {}),
-  });
+      razorpaySubscriptionId: subscription.id,
+      razorpayPlanId: planId,
+      razorpayCustomerId: customer.id,
+      status: "created",
+    });
 
-  // 5. Save to database
-  await createSubscriptionRecord({
-    userId: user.id,
-    planKey,
-    razorpaySubscriptionId: subscription.id,
-    razorpayPlanId: planId,
-    razorpayCustomerId: customer.id,
-    status: "created",
-  });
-
-  // 6. Return hosted checkout URL
-  return Response.json({
-    shortUrl: subscription.short_url,
-    subscriptionId: subscription.id,
-  });
+    // 6. Return hosted checkout URL
+    return Response.json({
+      shortUrl: subscription.short_url,
+      subscriptionId: subscription.id,
+    });
+  } catch (error) {
+    console.error("Failed to create subscription:", error);
+    return Response.json({ error: "Something went wrong" }, { status: 500 });
+  }
 }
 ```
 
@@ -206,7 +210,3 @@ Use `visibilitychange` event — fires when user switches back to your tab after
 3. **`notify_info` conditional**: Only include if you have email/phone. Empty object causes errors.
 4. **`total_count`**: Monthly = 60 (5 years), Yearly = 5. This is max renewals, not billing cycles.
 5. **Customer without phone**: Omit the `contact` field entirely — don't pass null or empty string.
-
----
-
-*Powered by [portoai.co](https://portoai.co) — battle-tested in production with thousands of Indian subscribers.*

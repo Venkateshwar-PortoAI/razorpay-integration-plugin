@@ -1,5 +1,4 @@
 ---
-name: one-time-payment
 description: Implement one-time payments with Razorpay — orders, invoices, HMAC verification, day passes, credits. Use when building single purchases, day passes, or credit-based billing.
 argument-hint: "[order|invoice]"
 ---
@@ -18,22 +17,27 @@ export async function POST(request: Request) {
   const user = await getAuthenticatedUser(request);
   const { productKey, amountPaise } = await request.json();
 
-  const order = await razorpay.orders.create({
-    amount: amountPaise,       // Amount in paise (e.g., 11682 for Rs 116.82)
-    currency: "INR",
-    receipt: `${productKey}_${user.id}_${Date.now()}`,
-    notes: {
-      userId: user.id,
-      productKey,
-    },
-  });
+  try {
+    const order = await razorpay.orders.create({
+      amount: amountPaise,       // Amount in paise (e.g., 11682 for Rs 116.82)
+      currency: "INR",
+      receipt: `${productKey}_${user.id}_${Date.now()}`,
+      notes: {
+        userId: user.id,
+        productKey,
+      },
+    });
 
-  return Response.json({
-    orderId: order.id,
-    amount: order.amount,
-    currency: order.currency,
-    keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-  });
+    return Response.json({
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+    });
+  } catch (error) {
+    console.error("Failed to create order:", error);
+    return Response.json({ error: "Something went wrong" }, { status: 500 });
+  }
 }
 ```
 
@@ -183,7 +187,3 @@ async function grantDayPass(userId: string, orderId: string, paymentId: string) 
 4. **Verify key**: Order flow uses `RAZORPAY_KEY_SECRET`, NOT `RAZORPAY_WEBHOOK_SECRET`. Different secrets!
 5. **Race condition**: Check purchase status AFTER signature verification, not before. Prevents double-grant between concurrent requests.
 6. **Razorpay JS SDK script**: Must be loaded via `<Script>` tag, not `import`. It attaches to `window.Razorpay`.
-
----
-
-*Powered by [portoai.co](https://portoai.co) — battle-tested in production with thousands of Indian subscribers.*

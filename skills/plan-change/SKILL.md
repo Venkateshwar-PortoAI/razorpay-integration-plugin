@@ -1,5 +1,4 @@
 ---
-name: plan-change
 description: Implement subscription plan changes (upgrade/downgrade) with Razorpay — deferred cancellation pattern, no downtime. Use when building plan switching or upgrade flows.
 ---
 
@@ -24,38 +23,43 @@ export async function POST(request: Request) {
 
   const { newPlanKey } = await request.json();
 
-  // 1. Get current subscription
-  const current = await getActiveSubscriptionByUserId(user.id);
-  if (!current) {
-    return Response.json({ error: "No active subscription" }, { status: 400 });
+  try {
+    // 1. Get current subscription
+    const current = await getActiveSubscriptionByUserId(user.id);
+    if (!current) {
+      return Response.json({ error: "No active subscription" }, { status: 400 });
+    }
+
+    // 2. Prevent same-plan change
+    if (current.planKey === newPlanKey) {
+      return Response.json({ error: "Already on this plan" }, { status: 409 });
+    }
+
+    // 3. Create NEW subscription with reference to old one
+    const planId = planIdFor(newPlanKey);
+    const subscription = await razorpay.subscriptions.create({
+      plan_id: planId,
+      total_count: totalCountFor(newPlanKey),
+      quantity: 1,
+      customer_notify: 1,
+      notes: {
+        userId: user.id,
+        planKey: newPlanKey,
+        replacesSubscription: current.razorpaySubscriptionId,  // KEY: signals webhook
+      },
+    });
+
+    // 4. DO NOT cancel old subscription here — webhook handles it
+    // 5. DO NOT create DB row here — webhook auto-creates on activation
+
+    return Response.json({
+      shortUrl: subscription.short_url,
+      subscriptionId: subscription.id,
+    });
+  } catch (error) {
+    console.error("Failed to change plan:", error);
+    return Response.json({ error: "Something went wrong" }, { status: 500 });
   }
-
-  // 2. Prevent same-plan change
-  if (current.planKey === newPlanKey) {
-    return Response.json({ error: "Already on this plan" }, { status: 409 });
-  }
-
-  // 3. Create NEW subscription with reference to old one
-  const planId = planIdFor(newPlanKey);
-  const subscription = await razorpay.subscriptions.create({
-    plan_id: planId,
-    total_count: totalCountFor(newPlanKey),
-    quantity: 1,
-    customer_notify: 1,
-    notes: {
-      userId: user.id,
-      planKey: newPlanKey,
-      replacesSubscription: current.razorpaySubscriptionId,  // KEY: signals webhook
-    },
-  });
-
-  // 4. DO NOT cancel old subscription here — webhook handles it
-  // 5. DO NOT create DB row here — webhook auto-creates on activation
-
-  return Response.json({
-    shortUrl: subscription.short_url,
-    subscriptionId: subscription.id,
-  });
 }
 ```
 
@@ -118,7 +122,3 @@ const handlePlanChange = async (newPlanKey: string) => {
 2. **Customer ID reuse**: Razorpay auto-links the customer if the same email is used.
 3. **`cancel(id, true)` not `cancel(id, { at_cycle_end: true })`**: Second parameter is boolean, not object. SDK types may be misleading.
 4. **Race window**: Between new subscription creation and old cancellation, user briefly has two subscriptions. Your access-check should handle this (any active = access granted).
-
----
-
-*Powered by [portoai.co](https://portoai.co) — battle-tested in production with thousands of Indian subscribers.*

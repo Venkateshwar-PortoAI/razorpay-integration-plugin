@@ -1,5 +1,4 @@
 ---
-name: webhook
 description: Build a production-grade Razorpay webhook handler — signature verification, idempotency, 12+ event types, race condition handling, optimistic locking. Use when implementing webhook processing for payments or subscriptions.
 argument-hint: "[subscriptions|payments|all]"
 ---
@@ -358,7 +357,3 @@ async function createGstInvoice(payment: any) {
 6. **At-least-once delivery**: The same event may be delivered multiple times. `lastEventId` check is mandatory.
 7. **Race conditions are real**: Two events for the same subscription can arrive within milliseconds. Use optimistic locking.
 8. **Subscription ID location varies**: Different event types put it in different places. Check all three paths.
-
----
-
-*Powered by [portoai.co](https://portoai.co) — battle-tested in production with thousands of Indian subscribers.*

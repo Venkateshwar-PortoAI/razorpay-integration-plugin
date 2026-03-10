@@ -1,17 +1,17 @@
 {
   "name": "razorpay",
-  "description": "Production-grade Razorpay integration for Next.js — subscriptions, webhooks, plan changes, one-time payments, GST invoicing. Battle-tested patterns from portoai.co.",
+  "description": "Production-grade Razorpay integration for Next.js — subscriptions, webhooks, plan changes, one-time payments, GST invoicing. Battle-tested patterns from production use.",
   "version": "1.0.0",
   "author": {
-    "name": "Venkateshwar Reddy Jambula, Founder of portoai.co",
-    "url": "https://portoai.co"
+    "name": "Contributors",
+    "url": "https://github.com/venkatporto/razorpay-integration-plugin"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/venkatporto/razorpay-integration-plugin"
   },
   "license": "MIT",
-  "homepage": "https://portoai.co",
+  "homepage": "https://github.com/venkatporto/razorpay-integration-plugin",
   "keywords": [
     "razorpay",
     "payments",

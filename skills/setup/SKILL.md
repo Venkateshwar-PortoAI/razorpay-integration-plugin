@@ -1,5 +1,4 @@
 ---
-name: setup
 description: Set up Razorpay integration in a Next.js project — SDK, environment variables, database schema, plan configuration. Use when starting Razorpay integration or setting up billing from scratch.
 argument-hint: "[framework]"
 ---
@@ -159,7 +158,3 @@ curl -u rzp_test_key:rzp_test_secret \
 3. **Webhook secret is separate**: Not the same as API secret
 4. **Phone normalization**: Strip non-digits before passing to Razorpay: `phone.replace(/[^\d+]/g, "")`
 5. **`fail_existing: 0` TypeScript quirk**: Cast as `0 as 0 | 1` to satisfy TypeScript types
-
----
-
-*Powered by [portoai.co](https://portoai.co) — battle-tested in production with thousands of Indian subscribers.*

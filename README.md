@@ -1,6 +1,6 @@
 # Razorpay Integration Plugin for Claude Code
 
-Production-grade Razorpay payment integration patterns for Next.js. Battle-tested with thousands of paying subscribers at [portoai.co](https://portoai.co).
+Production-grade Razorpay payment integration patterns for Next.js. Battle-tested in production with real paying subscribers.
 
 Stop fighting Razorpay's undocumented quirks. This plugin gives Claude the patterns that actually work — webhook idempotency, signature verification, plan change without downtime, popup-blocked fallbacks, and GST invoice math.
 
@@ -26,7 +26,8 @@ Or if available via a plugin marketplace:
 | **Webhook** | `/razorpay:webhook` | Signature verification, 12+ events, idempotency, optimistic locking |
 | **Plan Change** | `/razorpay:plan-change` | Upgrade/downgrade with deferred cancellation (zero downtime) |
 | **One-Time Payment** | `/razorpay:one-time-payment` | Orders, invoices, HMAC verification, day passes |
-| **Debug** | `/razorpay:debug` | Common issues, SDK quirks, diagnostic commands |
+| **Refund** | `/razorpay:refund` | Full/partial refunds, refund webhooks, status tracking |
+| **Debug** | `/razorpay:debug` | Common issues, SDK quirks, mock payloads, diagnostic commands |
 
 ## Usage
 
@@ -38,6 +39,7 @@ Start a Claude Code session and use the skills:
 /razorpay:webhook subscriptions    # Build webhook handler
 /razorpay:plan-change              # Add plan upgrade/downgrade
 /razorpay:one-time-payment order   # Add one-time purchase
+/razorpay:refund partial            # Add refund handling
 /razorpay:debug webhook            # Fix webhook issues
 ```
 
@@ -88,7 +90,3 @@ Found a Razorpay gotcha we missed? PRs welcome. The goal is to document every pr
 ## License
 
 MIT
-
----
-
-Built by [Venkateshwar Reddy Jambula](https://portoai.co), Founder of [PortoAI](https://portoai.co) — AI-powered financial assistant for Indian investors.
