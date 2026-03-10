@@ -216,12 +216,14 @@ Found a Razorpay gotcha we missed? PRs welcome. The goal is to document every pr
 
 <div align="center">
 
-<img src="assets/portoai-logo.png" alt="PortoAI" width="32" height="32" />
+<br>
 
-**Built by [portoai.co](https://portoai.co)**
+<a href="https://portoai.co"><img src="assets/portoai-logo.png" alt="PortoAI" width="28" height="28" /></a>
 
-[Website](https://portoai.co) | [GitHub](https://github.com/Venkateshwar-PortoAI)
+<sub>Built with ❤️ by <a href="https://portoai.co"><b>portoai.co</b></a></sub>
 
-MIT License
+<sub><a href="https://portoai.co">Website</a> · <a href="https://github.com/Venkateshwar-PortoAI">GitHub</a> · MIT License</sub>
+
+<br><br>
 
 </div>
