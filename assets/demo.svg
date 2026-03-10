@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" font-family="'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace" font-size="13">
+  <style>
+    .bg { fill: #0d1117; }
+    .header { fill: #161b22; }
+    .dot-r { fill: #ff5f56; }
+    .dot-y { fill: #ffbd2e; }
+    .dot-g { fill: #27c93f; }
+    .title { fill: #8b949e; font-size: 12px; }
+    .prompt { fill: #7c3aed; }
+    .cmd { fill: #e6edf3; }
+    .comment { fill: #484f58; }
+    .success { fill: #3fb950; }
+    .info { fill: #58a6ff; }
+    .warn { fill: #d29922; }
+    .dim { fill: #6e7681; }
+    .white { fill: #e6edf3; }
+    .highlight { fill: #f0883e; }
+
+    @keyframes typing1 { from { width: 0; } to { width: 220px; } }
+    @keyframes typing2 { from { width: 0; } to { width: 280px; } }
+    @keyframes typing3 { from { width: 0; } to { width: 180px; } }
+
+    .line { opacity: 0; }
+    .l1 { animation: fadeIn 0.3s 0.5s forwards; }
+    .l2 { animation: fadeIn 0.3s 1.2s forwards; }
+    .l3 { animation: fadeIn 0.3s 1.8s forwards; }
+    .l4 { animation: fadeIn 0.3s 2.4s forwards; }
+    .l5 { animation: fadeIn 0.3s 3.0s forwards; }
+    .l6 { animation: fadeIn 0.3s 3.6s forwards; }
+    .l7 { animation: fadeIn 0.3s 4.2s forwards; }
+    .l8 { animation: fadeIn 0.3s 4.8s forwards; }
+    .l9 { animation: fadeIn 0.3s 5.4s forwards; }
+    .l10 { animation: fadeIn 0.3s 6.0s forwards; }
+    .l11 { animation: fadeIn 0.3s 6.6s forwards; }
+    .l12 { animation: fadeIn 0.3s 7.2s forwards; }
+    .l13 { animation: fadeIn 0.3s 7.8s forwards; }
+    .l14 { animation: fadeIn 0.3s 8.4s forwards; }
+    .l15 { animation: fadeIn 0.3s 9.0s forwards; }
+    .l16 { animation: fadeIn 0.3s 9.6s forwards; }
+    .l17 { animation: fadeIn 0.3s 10.2s forwards; }
+    .l18 { animation: fadeIn 0.3s 10.8s forwards; }
+    .l19 { animation: fadeIn 0.3s 11.4s forwards; }
+    .l20 { animation: fadeIn 0.3s 12.0s forwards; }
+
+    @keyframes fadeIn { to { opacity: 1; } }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+    .cursor { animation: blink 1s step-end infinite; fill: #e6edf3; }
+  </style>
+
+  <!-- Terminal window -->
+  <rect class="bg" width="800" height="520" rx="10" />
+  <rect class="header" width="800" height="36" rx="10" />
+  <rect class="bg" y="26" width="800" height="10" />
+  <circle class="dot-r" cx="20" cy="18" r="6" />
+  <circle class="dot-y" cx="40" cy="18" r="6" />
+  <circle class="dot-g" cx="60" cy="18" r="6" />
+  <text class="title" x="400" y="22" text-anchor="middle">Claude Code — razorpay-integration-plugin</text>
+
+  <!-- Line 1: User prompt -->
+  <g class="line l1">
+    <text x="20" y="62"><tspan class="prompt">❯ </tspan><tspan class="cmd">/razorpay:setup</tspan></text>
+  </g>
+
+  <!-- Line 2-3: Agent thinking -->
+  <g class="line l2">
+    <text x="20" y="88" class="dim">  Detecting project structure...</text>
+  </g>
+  <g class="line l3">
+    <text x="20" y="108"><tspan class="success">  ✓</tspan><tspan class="white"> Next.js App Router detected</tspan></text>
+  </g>
+  <g class="line l4">
+    <text x="20" y="128"><tspan class="success">  ✓</tspan><tspan class="white"> Drizzle ORM found</tspan></text>
+  </g>
+  <g class="line l5">
+    <text x="20" y="148"><tspan class="success">  ✓</tspan><tspan class="white"> Clerk auth detected</tspan></text>
+  </g>
+
+  <!-- Line 6: Agent action -->
+  <g class="line l6">
+    <text x="20" y="178" class="info">  Installing razorpay SDK...</text>
+  </g>
+  <g class="line l7">
+    <text x="20" y="198"><tspan class="success">  ✓</tspan><tspan class="white"> Created lib/razorpay.ts (singleton + env validation)</tspan></text>
+  </g>
+  <g class="line l8">
+    <text x="20" y="218"><tspan class="success">  ✓</tspan><tspan class="white"> Created lib/billing/plans.ts (monthly + yearly)</tspan></text>
+  </g>
+  <g class="line l9">
+    <text x="20" y="238"><tspan class="success">  ✓</tspan><tspan class="white"> Created db/schema/subscriptions.ts</tspan></text>
+  </g>
+  <g class="line l10">
+    <text x="20" y="258"><tspan class="success">  ✓</tspan><tspan class="white"> Created db/schema/payments.ts</tspan></text>
+  </g>
+  <g class="line l11">
+    <text x="20" y="278"><tspan class="success">  ✓</tspan><tspan class="white"> Running migration... done</tspan></text>
+  </g>
+
+  <!-- Line 12: Plans creation -->
+  <g class="line l12">
+    <text x="20" y="308" class="info">  Creating plans via Razorpay API...</text>
+  </g>
+  <g class="line l13">
+    <text x="20" y="328"><tspan class="success">  ✓</tspan><tspan class="white"> Monthly plan: plan_test_Mx8kQ4 </tspan><tspan class="dim">(₹499/mo)</tspan></text>
+  </g>
+  <g class="line l14">
+    <text x="20" y="348"><tspan class="success">  ✓</tspan><tspan class="white"> Yearly plan: plan_test_Yx2pR7 </tspan><tspan class="dim">(₹4,999/yr)</tspan></text>
+  </g>
+
+  <!-- Line 15: Webhook -->
+  <g class="line l15">
+    <text x="20" y="378" class="info">  Building webhook handler...</text>
+  </g>
+  <g class="line l16">
+    <text x="20" y="398"><tspan class="success">  ✓</tspan><tspan class="white"> Created app/api/billing/webhook/route.ts</tspan></text>
+  </g>
+  <g class="line l17">
+    <text x="20" y="418"><tspan class="dim">    </tspan><tspan class="warn">⚠ Using request.text() for signature (not .json())</tspan></text>
+  </g>
+  <g class="line l18">
+    <text x="20" y="438"><tspan class="dim">    </tspan><tspan class="warn">⚠ Only granting access on subscription.activated (not .authenticated)</tspan></text>
+  </g>
+
+  <!-- Summary -->
+  <g class="line l19">
+    <text x="20" y="468" class="success">  ✓ Setup complete — 8 files created, 1 migration run</text>
+  </g>
+  <g class="line l20">
+    <text x="20" y="492"><tspan class="highlight">  → Building checkout flow next...</tspan></text>
+  </g>
+
+  <!-- Blinking cursor -->
+  <g class="line l20">
+    <rect class="cursor" x="310" y="482" width="8" height="16" rx="1" />
+  </g>
+</svg>

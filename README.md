@@ -24,6 +24,12 @@ Production-grade billing patterns for Indian SaaS — every Razorpay gotcha docu
 
 </div>
 
+<div align="center">
+<br>
+<img src="assets/demo.svg" alt="Demo: /razorpay:setup in Claude Code" width="700" />
+<br><br>
+</div>
+
 ---
 
 > **Why this exists:** Razorpay's docs look simple. Then you hit webhook race conditions, signature mismatches on parsed JSON, TypeScript SDK type errors, GST invoicing that subscriptions don't handle, and plan changes that cause downtime. This plugin embeds all those lessons directly into Claude Code so you don't have to discover them yourself.
