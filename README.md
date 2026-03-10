@@ -90,4 +90,4 @@ MIT
 
 ---
 
-Built by [PortoAI](https://portoai.co) — AI-powered financial assistant for Indian investors.
+Built by [Venkateshwar Reddy Jambula](https://portoai.co), Founder of [PortoAI](https://portoai.co) — AI-powered financial assistant for Indian investors.
