@@ -2,7 +2,9 @@
 
 Production-grade Razorpay payment integration patterns for Next.js. Battle-tested in production with real paying subscribers.
 
-Stop fighting Razorpay's undocumented quirks. This plugin gives Claude the patterns that actually work — webhook idempotency, signature verification, plan change without downtime, popup-blocked fallbacks, and GST invoice math.
+Stop fighting Razorpay's undocumented quirks. This plugin gives Claude the patterns that actually work — webhook idempotency, signature verification, plan change without downtime, popup-blocked fallbacks, and GST invoicing via Razorpay Invoice API.
+
+Built by [PortoAI](https://portoai.co) — extracted from the billing system powering [portoai.co](https://portoai.co).
 
 ## Install
 
@@ -94,7 +96,7 @@ Agents are autonomous workers that Claude spawns to build or review your code.
 | `razorpay-subscription` | Full checkout flow — API route + component + polling |
 | `razorpay-webhook` | Production webhook handler with 12 events + optimistic locking |
 | `razorpay-one-time-payment` | Order creation + JS SDK checkout + HMAC verification |
-| `razorpay-invoice` | GST calculation, invoice storage, download endpoints |
+| `razorpay-invoice` | GST invoices via Razorpay Invoice API with CGST/SGST line items |
 | `razorpay-db-schema` | Full billing schema for Drizzle / Prisma / raw SQL |
 
 ### Testers & Reviewers
@@ -106,11 +108,12 @@ Agents are autonomous workers that Claude spawns to build or review your code.
 
 ## What Makes This Different
 
-These aren't docs rewritten by AI. These are patterns extracted from a production billing system handling real money:
+These aren't docs rewritten by AI. These are patterns extracted from the production billing system at [portoai.co](https://portoai.co), handling real money from thousands of Indian subscribers:
 
 - **14 skills + 9 agents** covering the full billing lifecycle — build, test, ship, operate, migrate
 - **Webhook idempotency** with `lastEventId` tracking and optimistic locking
 - **Deferred cancellation** for plan changes — old subscription stays active until new one pays
+- **GST invoice generation** via Razorpay Invoice API with CGST/SGST line items — Razorpay subscriptions don't handle GST, you must create invoices separately
 - **Dunning & recovery** — grace periods, email sequences, involuntary churn prevention
 - **Revenue metrics** — MRR, churn, ARPU calculated from your Razorpay data
 - **Admin commands** — query your Razorpay account directly from Claude with curl
@@ -118,7 +121,6 @@ These aren't docs rewritten by AI. These are patterns extracted from a productio
 - **Customer portal** — self-service billing page (Razorpay doesn't have a built-in one)
 - **Production hardening** — security checklist, rate limiting, compliance, monitoring
 - **12 webhook events** handled with race condition guards
-- **GST invoice generation** via Razorpay Invoice API with CGST/SGST line items (Razorpay subscriptions don't handle GST)
 - **Razorpay SDK TypeScript quirks** documented and solved
 - **Timing-safe signature comparison** using `crypto.timingSafeEqual()`
 
@@ -133,6 +135,8 @@ These aren't docs rewritten by AI. These are patterns extracted from a productio
 | Invoice signature with missing fields | Use `?? ""` for optional fields in HMAC payload |
 | `notify_info` with empty object errors | Only include if email/phone exist |
 | Phone number with formatting chars | Strip: `.replace(/[^\d+]/g, "")` |
+| Subscriptions don't generate GST invoices | Create invoices via Invoice API with line items |
+| Multiple subscriptions per user coexist | Old ones aren't deleted, just cancelled — check for ANY active |
 
 ## Tech Stack Compatibility
 
@@ -148,3 +152,7 @@ Found a Razorpay gotcha we missed? PRs welcome. The goal is to document every pr
 ## License
 
 MIT
+
+---
+
+Built by [PortoAI](https://portoai.co) — AI-powered financial assistant for Indian investors.
