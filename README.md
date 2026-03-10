@@ -59,32 +59,32 @@ Claude:  Issues refund via Razorpay API -> done
 
 ### Build
 
-| | Skill | Command | What it does |
-|---|-------|---------|-------------|
-| :hammer: | **Setup** | `/razorpay:setup` | SDK, env vars, DB schema, plan config — asks for keys and does everything |
-| :repeat: | **Subscription** | `/razorpay:subscription` | Hosted checkout, customer upsert, popup fallback, visibility polling |
-| :satellite: | **Webhook** | `/razorpay:webhook` | Signature verification, 12+ events, idempotency, optimistic locking |
-| :arrows_counterclockwise: | **Plan Change** | `/razorpay:plan-change` | Upgrade/downgrade with deferred cancellation (zero downtime) |
-| :credit_card: | **One-Time Payment** | `/razorpay:one-time-payment` | Orders, JS SDK checkout, HMAC verification, day passes |
-| :back: | **Refund** | `/razorpay:refund` | Full/partial refunds, refund webhooks, status tracking |
-| :bust_in_silhouette: | **Customer Portal** | `/razorpay:customer-portal` | Self-service billing, cancel flow, invoice download, payment update |
+| Skill | Command | What it does |
+|-------|---------|-------------|
+| **Setup** | `/razorpay:setup` | SDK, env vars, DB schema, plan config — asks for keys and does everything |
+| **Subscription** | `/razorpay:subscription` | Hosted checkout, customer upsert, popup fallback, visibility polling |
+| **Webhook** | `/razorpay:webhook` | Signature verification, 12+ events, idempotency, optimistic locking |
+| **Plan Change** | `/razorpay:plan-change` | Upgrade/downgrade with deferred cancellation (zero downtime) |
+| **One-Time Payment** | `/razorpay:one-time-payment` | Orders, JS SDK checkout, HMAC verification, day passes |
+| **Refund** | `/razorpay:refund` | Full/partial refunds, refund webhooks, status tracking |
+| **Customer Portal** | `/razorpay:customer-portal` | Self-service billing, cancel flow, invoice download, payment update |
 
 ### Operate
 
-| | Skill | Command | What it does |
-|---|-------|---------|-------------|
-| :mag: | **Admin** | `/razorpay:admin` | Query payments, subscriptions, invoices, refunds directly via API |
-| :chart_with_upwards_trend: | **Metrics** | `/razorpay:metrics` | MRR, churn rate, ARPU, revenue dashboard, plan breakdown |
-| :rotating_light: | **Dunning** | `/razorpay:dunning` | Failed payment recovery, grace periods, dunning emails |
+| Skill | Command | What it does |
+|-------|---------|-------------|
+| **Admin** | `/razorpay:admin` | Query payments, subscriptions, invoices, refunds directly via API |
+| **Metrics** | `/razorpay:metrics` | MRR, churn rate, ARPU, revenue dashboard, plan breakdown |
+| **Dunning** | `/razorpay:dunning` | Failed payment recovery, grace periods, dunning emails |
 
 ### Ship & Migrate
 
-| | Skill | Command | What it does |
-|---|-------|---------|-------------|
-| :test_tube: | **Local Testing** | `/razorpay:local-testing` | Test keys, ngrok, webhook registration, test cards, e2e flow |
-| :rocket: | **Go-Live** | `/razorpay:go-live` | Security hardening, production checklist, compliance, monitoring |
-| :truck: | **Stripe Migration** | `/razorpay:stripe-migration` | Concept mapping, event mapping, parallel running, gradual cutover |
-| :wrench: | **Debug** | `/razorpay:debug` | Common issues, SDK quirks, mock payloads, diagnostic commands |
+| Skill | Command | What it does |
+|-------|---------|-------------|
+| **Local Testing** | `/razorpay:local-testing` | Test keys, ngrok, webhook registration, test cards, e2e flow |
+| **Go-Live** | `/razorpay:go-live` | Security hardening, production checklist, compliance, monitoring |
+| **Stripe Migration** | `/razorpay:stripe-migration` | Concept mapping, event mapping, parallel running, gradual cutover |
+| **Debug** | `/razorpay:debug` | Common issues, SDK quirks, mock payloads, diagnostic commands |
 
 ---
 
@@ -94,22 +94,22 @@ Agents are autonomous workers that Claude spawns. They detect your stack, make d
 
 ### Builders
 
-| | Agent | What it does |
-|---|-------|-------------|
-| :green_circle: | **razorpay-setup** | Asks for keys -> installs SDK -> creates env, singleton, DB schema, plans via API -> offers to build full billing flow |
-| :blue_circle: | **razorpay-subscription** | Builds complete checkout flow -> auto-chains to webhook builder |
-| :purple_circle: | **razorpay-webhook** | Builds production handler with 12 events -> offers to test with sample payloads |
-| :large_blue_circle: | **razorpay-one-time-payment** | Builds order creation + JS SDK checkout + HMAC verification |
-| :yellow_circle: | **razorpay-invoice** | Creates GST invoices via Razorpay Invoice API with CGST/SGST line items |
-| :white_circle: | **razorpay-db-schema** | Detects ORM (Drizzle/Prisma/SQL) -> generates all billing tables -> runs migration |
+| Agent | What it does |
+|-------|-------------|
+| **razorpay-setup** | Asks for keys → installs SDK → creates env, singleton, DB schema, plans via API → offers to build full billing flow |
+| **razorpay-subscription** | Builds complete checkout flow → auto-chains to webhook builder |
+| **razorpay-webhook** | Builds production handler with 12 events → offers to test with sample payloads |
+| **razorpay-one-time-payment** | Builds order creation + JS SDK checkout + HMAC verification |
+| **razorpay-invoice** | Creates GST invoices via Razorpay Invoice API with CGST/SGST line items |
+| **razorpay-db-schema** | Detects ORM (Drizzle/Prisma/SQL) → generates all billing tables → runs migration |
 
 ### Testers & Reviewers
 
-| | Agent | What it does |
-|---|-------|-------------|
-| :red_circle: | **razorpay-test-webhook** | Sends real payloads with valid signatures, tests idempotency, shows pass/fail |
-| :red_circle: | **razorpay-diagnostics** | Checks env, credentials, code mistakes, webhook health — fully autonomous |
-| :orange_circle: | **razorpay-code-audit** | Security, reliability, production readiness audit with file:line fixes |
+| Agent | What it does |
+|-------|-------------|
+| **razorpay-test-webhook** | Sends real payloads with valid signatures, tests idempotency, shows pass/fail |
+| **razorpay-diagnostics** | Checks env, credentials, code mistakes, webhook health — fully autonomous |
+| **razorpay-code-audit** | Security, reliability, production readiness audit with file:line fixes |
 
 ---
 
