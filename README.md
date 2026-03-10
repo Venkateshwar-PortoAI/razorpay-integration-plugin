@@ -1,6 +1,10 @@
 <div align="center">
 
+<img src="assets/portoai-logo.png" alt="PortoAI" width="64" height="64" />
+
 # Razorpay Integration Plugin for Claude Code
+
+<img src="assets/razorpay-logo.svg" alt="Razorpay" height="28" />
 
 **The only Razorpay plugin that knows what the docs don't tell you.**
 
@@ -207,9 +211,9 @@ Found a Razorpay gotcha we missed? PRs welcome. The goal is to document every pr
 
 <div align="center">
 
-**Built by [PortoAI](https://portoai.co)**
+<img src="assets/portoai-logo.png" alt="PortoAI" width="32" height="32" />
 
-AI-powered financial assistant for Indian investors
+**Built by [portoai.co](https://portoai.co)**
 
 [Website](https://portoai.co) | [GitHub](https://github.com/Venkateshwar-PortoAI)
 
