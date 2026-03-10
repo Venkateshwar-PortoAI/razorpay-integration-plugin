@@ -218,9 +218,11 @@ Found a Razorpay gotcha we missed? PRs welcome. The goal is to document every pr
 
 <br>
 
-<sub>Built with ❤️ by <a href="https://portoai.co"><img src="assets/portoai-logo.png" alt="PortoAI" width="14" height="14" /> <b>portoai.co</b></a></sub>
+<a href="https://portoai.co"><img src="assets/portoai-logo.png" alt="PortoAI" width="24" height="24" /></a>
 
-<sub><a href="https://portoai.co">Website</a> · <a href="https://github.com/Venkateshwar-PortoAI">GitHub</a> · MIT License</sub>
+**Built with ❤️ by [portoai.co](https://portoai.co)**
+
+[Website](https://portoai.co) · [GitHub](https://github.com/Venkateshwar-PortoAI) · MIT License
 
 <br><br>
 
