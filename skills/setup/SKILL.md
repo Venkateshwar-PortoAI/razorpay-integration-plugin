@@ -42,6 +42,19 @@ Create a shared Razorpay instance. Do NOT create new instances per request.
 // lib/razorpay.ts
 import Razorpay from "razorpay";
 
+// Validate required env vars at startup — fail early, not at first payment
+const requiredEnvVars = [
+  "RAZORPAY_KEY_ID",
+  "RAZORPAY_KEY_SECRET",
+  "RAZORPAY_WEBHOOK_SECRET",
+] as const;
+
+for (const key of requiredEnvVars) {
+  if (!process.env[key]) {
+    throw new Error(`Missing required environment variable: ${key}`);
+  }
+}
+
 export const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,
   key_secret: process.env.RAZORPAY_KEY_SECRET!,

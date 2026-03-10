@@ -109,13 +109,78 @@ await razorpay.customers.create({
 
 ## Payment Succeeds But Access Not Granted
 
-**Debug steps:**
+**This is the #1 production issue. Debug in this order:**
 
-1. **Check webhook delivery**: Razorpay Dashboard → Webhooks → Delivery attempts
-2. **Check event type**: Was it `subscription.authenticated` or `subscription.activated`? Handle both.
-3. **Check idempotency**: Is `lastEventId` causing a skip? Look at DB.
-4. **Check signature**: Was 400 returned? Check webhook logs for response body.
-5. **Check event order**: `payment.authorized` may arrive before `subscription.activated`. Handle `payment.authorized` as fallback activation.
+1. **Check auto-capture setting**: Dashboard → Settings → Payments → "Automatic capture delay". If set to manual, payments stay in `authorized` state and `payment.captured` never fires. **Fix: Set to "Auto-capture immediately" in Dashboard.**
+2. **Check event type**: Were you looking at `subscription.authenticated` or `subscription.activated`? Only `activated` means money was charged. `authenticated` just means card was verified — NO payment.
+3. **Check webhook delivery**: Dashboard → Settings → Webhooks → Click webhook → Delivery attempts. See if Razorpay even tried to send.
+4. **Webhook timeout**: Your handler must return 200 within 5 seconds. If it takes 6 seconds, Razorpay marks it failed and retries. Check your handler latency.
+5. **Check idempotency**: Is `lastEventId` causing a skip? A previous delivery may have succeeded in Razorpay's view but failed to commit in your DB.
+6. **Check signature**: Was 400 returned? Means wrong secret or parsed JSON body.
+7. **Payment succeeded but webhook never arrived**: This happens when your webhook URL is down or DNS fails. Recovery: build a `/api/billing/sync` endpoint that fetches subscription status directly from Razorpay API and reconciles:
+   ```typescript
+   // Recovery endpoint — call manually or via cron
+   const rzpSub = await razorpay.subscriptions.fetch(subscriptionId);
+   if (rzpSub.status === "active" && dbSub.status !== "active") {
+     await activateSubscription(dbSub, rzpSub, null);
+   }
+   ```
+
+## Auto-Capture Is Silently Off
+
+**Symptom**: Payments show as `authorized` in Razorpay Dashboard but never move to `captured`. Webhooks like `payment.captured` never fire.
+
+**Root cause**: Dashboard → Settings → Payments → "Automatic capture delay" is set to manual or a delay. New Razorpay accounts sometimes default to manual capture.
+
+**Fix**: Set to "Auto-capture immediately" in Dashboard. Or capture manually via API:
+```typescript
+await razorpay.payments.capture(paymentId, amount, "INR");
+```
+
+**Why this is dangerous**: Everything works in test mode (test payments auto-capture regardless of this setting). You only discover this in production when real customers pay but never get access.
+
+## Edge Runtime / Vercel Edge Functions Break Crypto
+
+**Symptom**: Webhook signature verification fails on Vercel Edge Functions or Cloudflare Workers with "crypto.createHmac is not a function".
+
+**Root cause**: Edge runtimes don't support Node.js `crypto` module. They use Web Crypto API instead.
+
+**Fix**: Use Web Crypto API for edge runtimes:
+```typescript
+// Works in Edge Runtime (Vercel Edge, Cloudflare Workers)
+async function verifyWebhookSignatureEdge(
+  rawBody: string,
+  signature: string,
+  secret: string
+): Promise<boolean> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(rawBody));
+  const expected = Array.from(new Uint8Array(sig))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  // Timing-safe comparison (no crypto.timingSafeEqual in edge)
+  if (expected.length !== signature.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < expected.length; i++) {
+    mismatch |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+```
+
+**Better fix**: Don't use Edge Runtime for webhook routes. In Next.js, ensure your webhook route uses Node.js runtime:
+```typescript
+// app/api/billing/webhook/route.ts
+export const runtime = "nodejs"; // Force Node.js runtime — NOT edge
+```
 
 ## Plan Change Not Working
 

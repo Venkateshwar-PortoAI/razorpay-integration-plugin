@@ -13,16 +13,20 @@ Use this guide before launching a Razorpay integration to production, or to hard
 
 Complete every item before going live:
 
+- [ ] **CRITICAL: Auto-capture is ON** — Dashboard → Settings → Payments → Set to "Auto-capture immediately". If off, payments stay `authorized` and webhook `payment.captured` never fires. Test mode hides this because it auto-captures regardless.
 - [ ] Switch to live API keys (`rzp_live_` prefix)
-- [ ] Create live plans (separate from test plans)
-- [ ] Register webhook with production URL (HTTPS required)
+- [ ] Create live plans (separate from test plans — test plan IDs don't work in live mode)
+- [ ] Register webhook with production URL (HTTPS required, port 443)
 - [ ] Set live webhook secret (different from test)
 - [ ] Enable all needed webhook events
 - [ ] Test with a real Rs 1 payment end-to-end
-- [ ] Verify refund flow works in live mode
+- [ ] Verify refund flow works in live mode (refunds take 5-7 business days in live, instant in test)
 - [ ] Remove all `console.log` of sensitive data
 - [ ] Verify `.env` is in `.gitignore`
+- [ ] Webhook route uses `runtime = "nodejs"` NOT edge (crypto module required)
 - [ ] Set up error monitoring (Sentry, etc.)
+- [ ] Set up reconciliation cron to catch missed webhooks (every 5-15 min)
+- [ ] Add `processed_webhook_events` table for idempotency
 
 
 ## 2. Security Hardening

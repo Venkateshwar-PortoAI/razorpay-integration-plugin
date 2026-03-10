@@ -175,6 +175,14 @@ await razorpay.customers.create({ fail_existing: 0 });
 | Multiple subscriptions per user coexist | Old ones aren't deleted — check for ANY active |
 | No proration on plan changes | Razorpay charges full amount. Handle credits/refunds yourself |
 | No native free trials | Use `start_at` parameter to delay first charge |
+| Auto-capture off = payments silently fail | Dashboard → Settings → Payments → Set "Auto-capture immediately". Test mode hides this |
+| Edge runtime breaks webhook crypto | Add `export const runtime = "nodejs"` to webhook route. Edge doesn't have `crypto.createHmac` |
+| Payment succeeds but webhook never arrives | Build a `/api/billing/sync` reconciliation endpoint + cron |
+| Serverless double-click creates duplicates | Use DB unique constraint on userId+status or `SELECT FOR UPDATE` |
+| Halted subscriptions can't be resumed | After 3 failed retries, subscription halts forever. Must create new subscription |
+| Webhook retries: 3 attempts over ~2 hours | After that, event is dropped. No replay button — reconcile via API |
+| Test refunds are instant, live take 5-7 days | Don't assume live behavior matches test |
+| `RAZORPAY_KEY_SECRET` ≠ `RAZORPAY_WEBHOOK_SECRET` | Two different secrets for two different purposes. Using wrong one = silent failure |
 
 ---
 

@@ -32,7 +32,23 @@ Razorpay does NOT guarantee exactly-once delivery. The same event can be deliver
 - Your handler returns non-2xx
 - Network issues between Razorpay and your server
 
-**Mitigation**: Track `lastEventId` in your database.
+**Mitigation**: Track `lastEventId` in your database AND maintain a `processed_webhook_events` table.
+
+### Webhook Retry Schedule
+When your handler fails (non-2xx or timeout), Razorpay retries:
+- **Retry 1**: ~5 minutes after first failure
+- **Retry 2**: ~30 minutes after retry 1
+- **Retry 3**: ~1 hour after retry 2
+- **Total retries**: 3 (so 4 total attempts including the original)
+- After all retries exhausted, the event is dropped — check Dashboard → Webhooks → Delivery attempts
+- Razorpay Dashboard shows all delivery attempts with response codes for debugging
+- **There is no "replay" button** — if all retries fail, you must reconcile manually by fetching the subscription/payment directly from the API
+
+### Webhook Timeout
+- Razorpay waits **5 seconds** for a 2xx response
+- This is from when Razorpay sends the request to when it receives the response (includes network round-trip)
+- If your webhook handler does heavy work (DB queries, external API calls, invoice creation), acknowledge immediately and process async via a queue
+- Vercel serverless functions have a default 10s timeout, but Razorpay gives up at 5s — your function keeps running but the response is lost
 
 ### Event ID Location
 ```
@@ -116,6 +132,118 @@ created → authenticated → active → (charged repeatedly)
 - `payment.authorized` can arrive AFTER `subscription.authenticated` — use as fallback activation
 - `subscription.charged` is for RENEWALS, not initial payment
 - `subscription.completed` means all `total_count` cycles are done — not a cancellation
+- `subscription.authenticated` does NOT mean paid — only card verified. Wait for `subscription.activated`
+
+### What Happens After All Renewal Retries Fail
+- Razorpay retries failed renewal payments 3 times over ~3 days (configurable in Dashboard → Settings → Subscriptions)
+- After all retries fail: subscription moves to `halted` state and `subscription.halted` webhook fires
+- **Halted subscriptions cannot be auto-resumed** — you must create a NEW subscription
+- Halted subscriptions stay halted forever (they don't auto-cancel)
+- **Recommendation**: Build a cleanup cron that auto-cancels subscriptions halted for 30+ days
+- During retry window, the user still has access (subscription shows `active` with a failed charge in the background)
+
+## Auto-Capture vs Manual Capture
+
+**This one will silently break your entire integration.**
+
+Razorpay Dashboard → Settings → Payments → "Automatic capture delay" controls whether payments are automatically captured after authorization.
+
+- **Auto-capture (recommended)**: Payment goes `authorized → captured` immediately. `payment.captured` webhook fires.
+- **Manual capture**: Payment stays in `authorized` state. YOU must call `razorpay.payments.capture()` within 5 days or the authorization expires and money is never collected.
+
+**The trap**: Test mode auto-captures regardless of this setting. You won't discover manual capture is on until you go live and customers pay but `payment.captured` webhooks never fire.
+
+**Check**: Dashboard → Settings → Payments. Set to "Auto-capture immediately" for subscription billing.
+
+## Rate Limits
+
+Razorpay rate limits are **undocumented** but observed behavior:
+- ~25 requests per second across all endpoints (shared)
+- Exceeding returns HTTP `429` with no `Retry-After` header
+- Back off with exponential delay (1s, 2s, 4s)
+- Pagination: max 100 items per request (enforced)
+- Batch operations: space sequential creates by 100-200ms
+
+```typescript
+// Simple rate-limit-safe wrapper
+async function rateSafeCall<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      if (err.statusCode === 429 && i < retries - 1) {
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error("Rate limit retries exhausted");
+}
+```
+
+## Serverless Race Conditions (Duplicate Subscriptions)
+
+In serverless environments (Vercel, AWS Lambda), two concurrent function invocations can create duplicate subscriptions:
+
+```
+User double-clicks "Subscribe" →
+  Request A: reads DB (no sub) → creates Razorpay subscription
+  Request B: reads DB (no sub) → creates Razorpay subscription (DUPLICATE!)
+```
+
+**Fix**: Use a database-level unique constraint or advisory lock:
+
+```typescript
+// Option 1: Unique constraint + catch conflict
+try {
+  await db.insert(subscriptions).values({
+    userId: user.id,
+    status: "created",
+    // ... other fields
+  });
+} catch (err: any) {
+  if (err.code === "23505") { // Unique violation (Postgres)
+    // Another request already created — return existing
+    const existing = await getSubscriptionByUserId(user.id);
+    return Response.json({ shortUrl: existing.shortUrl });
+  }
+  throw err;
+}
+
+// Option 2: SELECT FOR UPDATE (if using transactions)
+const existing = await db.execute(
+  sql`SELECT * FROM subscriptions WHERE user_id = ${userId} AND status IN ('created', 'active') FOR UPDATE`
+);
+```
+
+## Payment Succeeded But Webhook Never Arrived
+
+This happens when: your server was down, DNS failed, or Razorpay's retries all timed out.
+
+**Recovery pattern**: Build a reconciliation endpoint that syncs with Razorpay API:
+
+```typescript
+// app/api/billing/sync/route.ts — call via cron or manual trigger
+export async function POST(request: Request) {
+  const user = await getAuthenticatedUser(request);
+  const dbSub = await getSubscriptionByUserId(user.id);
+  if (!dbSub) return Response.json({ synced: false });
+
+  // Fetch ground truth from Razorpay
+  const rzpSub = await razorpay.subscriptions.fetch(dbSub.razorpaySubscriptionId);
+
+  if (rzpSub.status === "active" && dbSub.status !== "active") {
+    // Razorpay says active but our DB doesn't — webhook was lost
+    await updateSubscriptionStatus(dbSub, "active", rzpSub, null);
+    return Response.json({ synced: true, action: "activated" });
+  }
+
+  return Response.json({ synced: true, action: "none" });
+}
+```
+
+**Run this on a cron** (every 5-15 minutes) to catch any missed webhooks.
 
 ## Error Handling
 
