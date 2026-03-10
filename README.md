@@ -8,7 +8,7 @@ Stop fighting Razorpay's undocumented quirks. This plugin gives Claude the patte
 
 ```bash
 # Clone and load locally
-git clone https://github.com/AlphaCoderNotAI/razorpay-integration-plugin.git
+git clone https://github.com/Venkateshwar-PortoAI/razorpay-integration-plugin.git
 claude --plugin-dir ./razorpay-integration-plugin
 ```
 
