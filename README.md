@@ -4,7 +4,7 @@
 
 **The only Razorpay plugin that knows what the docs don't tell you.**
 
-Production-grade billing patterns extracted from a real SaaS handling thousands of paying subscribers.
+Production-grade billing patterns for Indian SaaS — every Razorpay gotcha documented so you don't have to discover them.
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Skills](https://img.shields.io/badge/skills-14-green.svg)](#skills)
@@ -17,7 +17,7 @@ Production-grade billing patterns extracted from a real SaaS handling thousands 
 
 ---
 
-> **Why this exists:** Razorpay's docs look simple. Then you hit webhook race conditions, signature mismatches on parsed JSON, TypeScript SDK type errors, GST invoicing that subscriptions don't handle, and plan changes that cause downtime. This plugin embeds all those hard-won lessons directly into Claude Code so you never have to discover them yourself.
+> **Why this exists:** Razorpay's docs look simple. Then you hit webhook race conditions, signature mismatches on parsed JSON, TypeScript SDK type errors, GST invoicing that subscriptions don't handle, and plan changes that cause downtime. This plugin embeds all those lessons directly into Claude Code so you don't have to discover them yourself.
 
 ---
 
@@ -115,7 +115,7 @@ Agents are autonomous workers that Claude spawns. They detect your stack, make d
 
 ## Things Razorpay Won't Tell You
 
-> These are the gotchas that cost us weeks. Now they're in the plugin so they cost you zero.
+> These are the gotchas every Razorpay integration hits. Now they're in the plugin so they cost you zero.
 
 ### Subscriptions don't handle GST
 
