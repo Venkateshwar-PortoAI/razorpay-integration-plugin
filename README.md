@@ -161,15 +161,20 @@ await razorpay.customers.create({ fail_existing: 0 });
 
 | Problem | Solution |
 |---------|----------|
+| `authenticated` ≠ `activated` | `authenticated` = card verified, NO payment. `activated` = money charged. **Only grant access on `activated`** |
+| One-time payments vs subscriptions | Completely different: Orders API + JS SDK popup vs Subscriptions API + hosted `short_url`. Different secrets too |
+| Webhook idempotency breaks on retry | Use both `lastEventId` on subscription row AND a `processed_webhook_events` table |
 | `subscriptions.cancel(id, ?)` — TS expects object | Use boolean: `cancel(id, true)` |
 | `customers.create({ fail_existing: 0 })` — type error | Cast: `0 as 0 \| 1` |
-| `current_period_end` field name varies | Try: `current_period_end` -> `current_end` -> `end_at` |
+| `current_period_end` field name varies | Try: `current_period_end` → `current_end` → `end_at` |
 | Webhook signature on parsed JSON fails | Use `request.text()`, NOT `request.json()` |
 | Invoice signature with missing fields | Use `?? ""` for optional fields in HMAC payload |
 | `notify_info` with empty object errors | Only include if email/phone exist |
 | Phone number with formatting chars | Strip: `.replace(/[^\d+]/g, "")` |
 | Subscriptions don't generate GST invoices | Create via Invoice API with line items |
 | Multiple subscriptions per user coexist | Old ones aren't deleted — check for ANY active |
+| No proration on plan changes | Razorpay charges full amount. Handle credits/refunds yourself |
+| No native free trials | Use `start_at` parameter to delay first charge |
 
 ---
 

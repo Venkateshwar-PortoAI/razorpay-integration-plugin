@@ -78,15 +78,40 @@ export async function POST(request: Request) {
     return new Response("OK", { status: 200 });
   }
 
-  // 6. Idempotency check
+  // 6. Idempotency check (multi-layer)
   const subscription = await getSubscriptionByRazorpayId(subscriptionId);
+
+  // Layer 1: Exact event ID match (same event delivered twice)
   if (subscription?.lastEventId === eventId && eventId) {
     return new Response("Already processed", { status: 200 });
+  }
+
+  // Layer 2: Check processed_events table for this event ID
+  // Razorpay can send the same logical event with different event IDs on retry
+  if (eventId) {
+    const alreadyProcessed = await db
+      .select()
+      .from(processedWebhookEvents)
+      .where(eq(processedWebhookEvents.eventId, eventId))
+      .limit(1);
+    if (alreadyProcessed.length > 0) {
+      return new Response("Already processed", { status: 200 });
+    }
   }
 
   // 7. Handle event
   try {
     await handleEvent(eventType, event, subscription, eventId);
+
+    // Record processed event for idempotency
+    if (eventId) {
+      await db.insert(processedWebhookEvents).values({
+        eventId,
+        eventType,
+        subscriptionId,
+        processedAt: new Date(),
+      }).onConflictDoNothing();  // Safe if duplicate insert races
+    }
   } catch (error) {
     console.error("Webhook processing error:", error);
     // Still return 200 to prevent retries on app errors
@@ -120,11 +145,33 @@ async function handleEvent(
   const payment = event.payload?.payment?.entity;
 
   switch (eventType) {
-    // ── Activation Events ──────────────────────────────────
-    case "subscription.authenticated":
+    // ── AUTHENTICATED: Card authorized, NOT payment confirmed ──
+    case "subscription.authenticated": {
+      // DO NOT grant access here! This only means the card was authorized.
+      // The user's card is verified but NO money has been charged yet.
+      // Wait for subscription.activated to confirm actual payment.
+      if (!subscription) {
+        // Auto-create DB record from webhook if it doesn't exist yet
+        if (entity?.notes?.userId && entity?.notes?.planKey) {
+          await createSubscriptionRecord({
+            userId: entity.notes.userId,
+            planKey: entity.notes.planKey,
+            razorpaySubscriptionId: entity.id,
+            razorpayPlanId: entity.plan_id,
+            status: "authenticated",  // NOT "active"
+          });
+        }
+      } else {
+        await updateSubscriptionStatus(subscription, "authenticated", entity, eventId);
+      }
+      break;
+    }
+
+    // ── ACTIVATED: Payment confirmed — THIS is where you grant access ──
     case "subscription.activated": {
+      // THIS is the real event. Money has been charged. Grant access NOW.
       await activateSubscription(subscription, entity, eventId);
-      if (eventType === "subscription.activated" && payment) {
+      if (payment) {
         await createGstInvoice(payment, subscription); // Non-blocking — calls Razorpay Invoice API
       }
       break;
@@ -370,8 +417,8 @@ async function createGstInvoice(payment: any, subscription: any) {
 
 | Event | When | Action |
 |-------|------|--------|
-| `subscription.authenticated` | User completes first payment | Activate subscription |
-| `subscription.activated` | Subscription becomes active | Activate + GST invoice |
+| `subscription.authenticated` | Card authorized, NO payment yet | Save to DB as "authenticated" — **DO NOT grant access** |
+| `subscription.activated` | **First payment confirmed** | **Grant access NOW** + create GST invoice |
 | `subscription.charged` | Recurring payment succeeds | Mark active (renewal) + GST |
 | `subscription.pending` | Payment attempt pending | Update status (don't downgrade from active) |
 | `subscription.paused` | Admin pauses | Mark paused, maybe revoke access |
@@ -385,11 +432,13 @@ async function createGstInvoice(payment: any, subscription: any) {
 
 ## Gotchas
 
-1. **Read raw body, not JSON**: Signature is computed on the raw string. Use `request.text()`, not `request.json()`.
-2. **Always return 200**: Even for events you don't handle. Non-2xx triggers retries.
-3. **Event ID sources**: Prefer `x-razorpay-event-id` header over `event.id` in payload.
-4. **`current_period_end` field names**: Try `current_period_end`, then `current_end`, then `end_at`. All are Unix seconds.
-5. **Don't downgrade from active**: `subscription.pending` may arrive after `subscription.activated`. Check current status before updating.
-6. **At-least-once delivery**: The same event may be delivered multiple times. `lastEventId` check is mandatory.
-7. **Race conditions are real**: Two events for the same subscription can arrive within milliseconds. Use optimistic locking.
-8. **Subscription ID location varies**: Different event types put it in different places. Check all three paths.
+1. **`subscription.authenticated` ≠ `subscription.activated`**: This is the #1 mistake. `authenticated` means the card was verified — NO money charged. `activated` means first payment succeeded. **Only grant access on `activated`**. If you grant on `authenticated`, users get free access when their payment fails.
+2. **Read raw body, not JSON**: Signature is computed on the raw string. Use `request.text()`, not `request.json()`.
+3. **Always return 200**: Even for events you don't handle. Non-2xx triggers retries.
+4. **Event ID sources**: Prefer `x-razorpay-event-id` header over `event.id` in payload.
+5. **`current_period_end` field names**: Try `current_period_end`, then `current_end`, then `end_at`. All are Unix seconds.
+6. **Don't downgrade from active**: `subscription.pending` may arrive after `subscription.activated`. Check current status before updating.
+7. **At-least-once delivery**: The same event may be delivered multiple times. Use both `lastEventId` on the subscription AND a `processed_webhook_events` table for belt-and-suspenders idempotency.
+8. **Race conditions are real**: Two events for the same subscription can arrive within milliseconds. Use optimistic locking.
+9. **Subscription ID location varies**: Different event types put it in different places. Check all three paths.
+10. **Idempotency must survive retries**: Razorpay can resend with a different event ID. Your `processedWebhookEvents` table catches this. Without it, the same charge can grant access twice or create duplicate invoices.

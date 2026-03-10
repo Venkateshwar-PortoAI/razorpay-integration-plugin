@@ -7,6 +7,22 @@ argument-hint: "[order|invoice]"
 
 Two flows for one-time payments: **Order flow** (Razorpay JS SDK popup) and **Invoice flow** (hosted page). Both require server-side HMAC verification.
 
+## One-Time Payments vs Subscriptions: Completely Different Checkout
+
+This is a common source of confusion. One-time payments and subscriptions use **entirely different APIs and checkout experiences**:
+
+| | One-Time Payment | Subscription |
+|---|---|---|
+| **API** | Orders API (`razorpay.orders.create`) | Subscriptions API (`razorpay.subscriptions.create`) |
+| **Checkout UI** | JS SDK popup (`new Razorpay({...}).open()`) | Hosted page redirect (`short_url`) |
+| **Client script** | `checkout.js` loaded via `<Script>` tag | No client script needed |
+| **Verification** | Client-side HMAC (`order_id\|payment_id`) | Webhook (`subscription.activated`) |
+| **Payment confirmation** | Immediate — `handler` callback fires | Async — webhook fires minutes later |
+| **Where it runs** | Inline popup on your page | Separate Razorpay-hosted page |
+| **Key used for HMAC** | `RAZORPAY_KEY_SECRET` (API secret) | `RAZORPAY_WEBHOOK_SECRET` (webhook secret) |
+
+**Do NOT mix these up.** You cannot use `short_url` for one-time orders, and you cannot use the JS SDK popup for subscriptions (it technically works but breaks on mobile/popup blockers).
+
 ## Flow 1: Order + JS SDK (Recommended for UX)
 
 ### Create Order (Server)
@@ -183,9 +199,11 @@ async function grantDayPass(userId: string, orderId: string, paymentId: string) 
 
 ## Gotchas
 
-1. **Two different signature formats**: Order flow = `order_id|payment_id`. Invoice flow = `invoice_id|receipt|status|payment_id`. Using the wrong format = silent failure.
-2. **`?? ""` for optional invoice fields**: Missing fields in the signature payload produce wrong HMAC. Always default to empty string.
-3. **`timingSafeEqual` requires same length**: Catch errors from length mismatch — treat as invalid.
-4. **Verify key**: Order flow uses `RAZORPAY_KEY_SECRET`, NOT `RAZORPAY_WEBHOOK_SECRET`. Different secrets!
-5. **Race condition**: Check purchase status AFTER signature verification, not before. Prevents double-grant between concurrent requests.
-6. **Razorpay JS SDK script**: Must be loaded via `<Script>` tag, not `import`. It attaches to `window.Razorpay`.
+1. **Completely different from subscriptions**: One-time payments use the Orders API + JS SDK popup. Subscriptions use the Subscriptions API + hosted checkout page. Do not mix the two — they have different APIs, different checkout UIs, different verification methods, and different secrets.
+2. **Two different signature formats**: Order flow = `order_id|payment_id`. Invoice flow = `invoice_id|receipt|status|payment_id`. Using the wrong format = silent failure.
+3. **`?? ""` for optional invoice fields**: Missing fields in the signature payload produce wrong HMAC. Always default to empty string.
+4. **`timingSafeEqual` requires same length**: Catch errors from length mismatch — treat as invalid.
+5. **Verify key**: Order flow uses `RAZORPAY_KEY_SECRET` (your API key secret), NOT `RAZORPAY_WEBHOOK_SECRET`. These are different secrets for different purposes!
+6. **Race condition**: Check purchase status AFTER signature verification, not before. Prevents double-grant between concurrent requests.
+7. **Razorpay JS SDK script**: Must be loaded via `<Script>` tag, not `import`. It attaches to `window.Razorpay`. This script is ONLY for one-time payments, not subscriptions.
+8. **Payment confirmation is immediate**: Unlike subscriptions (which rely on async webhooks), one-time payments confirm in the `handler` callback. You verify the HMAC signature server-side and grant access right away.
