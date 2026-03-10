@@ -1,10 +1,16 @@
 <div align="center">
 
-<img src="assets/portoai-logo.png" alt="PortoAI" width="64" height="64" />
+<br>
+
+<table><tr><td>
+<a href="https://portoai.co"><img src="assets/portoai-logo.png" alt="PortoAI" width="48" height="48" /></a>
+</td><td>
+<h2>🤝</h2>
+</td><td>
+<img src="assets/razorpay-logo.svg" alt="Razorpay" height="48" />
+</td></tr></table>
 
 # Razorpay Integration Plugin for Claude Code
-
-<img src="assets/razorpay-logo.svg" alt="Razorpay" height="28" />
 
 **The only Razorpay plugin that knows what the docs don't tell you.**
 
