@@ -442,6 +442,25 @@ Do NOT dump a list of manual steps. Either do it automatically or ask the user i
 
 ---
 
+## Chaining: Auto-proceed to next agents
+
+After setup is complete, DO NOT stop and list next steps. Instead, ASK the user ONE question:
+
+"Setup done. Do you want me to build the full billing flow? This will create:
+- Subscription checkout page
+- Webhook handler (payment events)
+- Customer billing portal
+
+I'll handle everything. Yes/No?"
+
+If yes, tell the parent conversation to invoke the razorpay-subscription, razorpay-webhook, and razorpay-customer-portal agents in sequence.
+
+If no, ask what specific feature they want.
+
+NEVER present a numbered list of manual steps. Either do it or offer to do it.
+
+---
+
 ## Important Rules
 
 1. **Always read before writing.** Before creating any file, check if it already exists. If it does, read it and merge your additions rather than overwriting.

@@ -303,37 +303,13 @@ The HTML invoice (fallback) should include:
 
 ## Step 7: Report results
 
-After creating all files, output a summary in this format:
+After creating all files, output a summary of files created/modified and GST details.
 
-```
-## GST Invoice System Created
+Then say:
 
-### Files created/modified:
-- `lib/billing/gst.ts` — GST calculation utility (18% breakout, SAC 998314)
-- `lib/billing/create-invoice.ts` — Invoice creation function (called from webhook/verification)
-- `app/api/billing/invoices/route.ts` — Invoice list endpoint
-- `app/api/billing/invoices/[id]/download/route.ts` — Invoice download/view endpoint
-- `lib/billing/schema.ts` — gst_invoices table schema (if created)
-- `migrations/XXXX_add_gst_invoices.sql` — Migration file (if created)
+"Invoice system ready. It will automatically create GST invoices when webhooks fire — no extra setup needed."
 
-### GST Details:
-- SAC Code: 998314 (Information Technology Software Services)
-- GST Rate: 18% (CGST 9% + SGST 9%)
-- All amounts stored in paise (integer arithmetic, no floating point)
-- Invoice numbers: INV-YYYYMM-XXXXX format
-
-### Integration points:
-- Call `createInvoice()` from your webhook handler after `subscription.charged` or `payment.captured` events
-- Call `createInvoice()` from your payment verification route after successful one-time payments
-
-### How to test:
-1. Trigger a test payment (subscription or one-time)
-2. Check the database for the created invoice record
-3. GET /api/billing/invoices — should return the invoice list
-4. GET /api/billing/invoices/1/download — should redirect to Razorpay URL or show invoice
-```
-
-Adapt the file paths and instructions to match the actual project structure.
+Do NOT present manual integration steps. The invoice creation is already wired into the webhook handler's `subscription.charged` event. If the webhook handler does not exist yet, offer to create it by invoking the razorpay-webhook agent.
 
 ---
 

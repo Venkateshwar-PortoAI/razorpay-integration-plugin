@@ -12,6 +12,16 @@ Follow these steps in order. Be thorough at each stage before moving to the next
 
 ---
 
+## Decisions This Agent Makes
+
+- **Uses hosted checkout (short_url) over JS SDK popup** — works on all browsers, no popup blockers
+- **Puts API route at `/api/billing/create-subscription`** — standard convention
+- **Uses visibilitychange polling** — detects payment completion across tabs
+- **Deduplicates pending subscriptions** — prevents double charges
+- **Strips phone formatting automatically** — Razorpay rejects formatted numbers
+
+---
+
 ## Step 1: Detect project structure
 
 Before writing any code, understand the codebase you are working with. Run these searches in parallel.
@@ -311,73 +321,17 @@ Do NOT create files that duplicate existing utilities.
 
 ---
 
-## Step 6: Generate report
+## Step 6: Generate report and chain to next agent
 
-After creating all files, output a clear summary.
+After creating all files, output a clear summary of files created/modified and what was reused.
 
-**Format:**
+Then, instead of listing manual next steps, say:
 
-```
-## Subscription Checkout Flow — Implementation Report
+"Checkout flow is ready. I'll build the webhook handler next so payments actually activate subscriptions."
 
-### Files created
-- `app/api/billing/create-subscription/route.ts` — Subscription creation endpoint
-- `app/api/billing/status/route.ts` — Billing status endpoint
-- `components/billing/SubscriptionCheckout.tsx` — Checkout component with popup + fallback
-- `lib/billing/plans.ts` — Plan configuration
+Tell the parent conversation to invoke the razorpay-webhook agent immediately. Do NOT say "Remember to set up webhooks" — offer to do it (or just do it).
 
-### Files modified
-- (list any existing files that were modified, with a description of the change)
-
-### What was reused
-- Razorpay client from `lib/razorpay.ts`
-- Auth pattern: (describe which auth library/pattern)
-- Database: (describe which ORM/pattern)
-- Styling: (describe which approach)
-
-### How to test
-1. Ensure your `.env.local` has these variables set:
-   - `RAZORPAY_KEY_ID` (your test mode key)
-   - `RAZORPAY_KEY_SECRET`
-   - `RAZORPAY_PLAN_ID_MONTHLY` (create a plan in Razorpay Dashboard > Plans)
-   - `RAZORPAY_PLAN_ID_YEARLY`
-2. Start your dev server.
-3. Navigate to the page with the SubscriptionCheckout component.
-4. Click "Subscribe" — a new tab should open with Razorpay hosted checkout.
-5. Use test card `4111 1111 1111 1111` with any future expiry and any CVV.
-6. After completing payment, return to your app — the status should update automatically.
-
-### Important: Set up webhook handler next
-The subscription flow is incomplete without a webhook handler. Razorpay uses webhooks
-to notify your server when:
-- `subscription.activated` — first payment succeeded
-- `subscription.charged` — recurring payment succeeded
-- `subscription.pending` — payment is being retried
-- `subscription.halted` — all retry attempts failed
-- `subscription.cancelled` — subscription was cancelled
-
-Without a webhook handler, your database will not stay in sync with Razorpay.
-Use the razorpay webhook skill or agent to set this up.
-
-### Database note
-(If no subscription table was found, include this section)
-The code references a subscription table that does not exist yet. You need to create
-a database migration with at least these columns:
-- id (primary key)
-- userId (foreign key to users table, indexed)
-- razorpaySubscriptionId (string, unique, indexed)
-- razorpayPlanId (string)
-- razorpayCustomerId (string)
-- status (string: created | authenticated | active | pending | halted | cancelled | completed | expired)
-- planKey (string)
-- shortUrl (string, nullable)
-- currentPeriodEnd (timestamp, nullable)
-- lastEventId (string, nullable — for webhook idempotency)
-- createdAt (timestamp)
-- updatedAt (timestamp)
-```
-
-Adapt the report to reflect what was actually done. Only include sections that are relevant. Be specific about file paths. If you had to make assumptions (e.g., about the database schema), call them out clearly.
+If the database schema is missing, note what columns are needed but do NOT present a numbered list of manual steps. Instead, offer to run the razorpay-db-schema agent to create it.
 
 ---
 

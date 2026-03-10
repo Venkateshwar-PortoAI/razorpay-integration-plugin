@@ -12,6 +12,16 @@ Follow these steps in order. Be thorough at each stage before moving to the next
 
 ---
 
+## Decisions This Agent Makes
+
+- **Includes lastEventId column** — webhook idempotency is mandatory
+- **Includes gracePeriodEnd column** — for dunning/failed payment recovery
+- **Adds indexes on userId and razorpaySubscriptionId** — webhook lookups must be fast
+- **Uses UUID primary keys by default** — matches modern conventions
+- **Creates both subscriptions and invoices tables** — invoices are required for Indian businesses (GST)
+
+---
+
 ## Step 1: Detect ORM and existing schema
 
 **1a. Identify the ORM**
@@ -280,39 +290,22 @@ Based on the detected ORM:
 
 ---
 
-## Step 8: Report results
+## Step 8: Run migration and report
 
-After creating all schema definitions and migration files, output a summary:
+After creating all schema definitions, **automatically run the migration** without asking:
 
-```
-## Billing Database Schema Created
+- **Drizzle**: Run `npx drizzle-kit push` (development) or `npx drizzle-kit generate && npx drizzle-kit migrate` (if the project uses migration files).
+- **Prisma**: Run `npx prisma db push` for development.
+- **Raw SQL**: Execute the SQL file against the database if connection details are available.
 
-### Tables generated:
-| Table | Columns | Indexes | Purpose |
-|-------|---------|---------|---------|
-| subscriptions | 16 | 3 (user_id, razorpay_subscription_id, status) | Core subscription state |
-| gst_invoices | 19 | 4 (user_id, razorpay_payment_id, razorpay_subscription_id, invoice_number) | GST-compliant invoices |
-| refunds | 9 | 3 (user_id, razorpay_refund_id, razorpay_payment_id) | Refund tracking |
-| day_passes | 10 | 4 (user_id, razorpay_payment_id, status, expires_at) | One-time purchases |
-| payment_history | 15 | 4 (user_id, razorpay_payment_id, razorpay_subscription_id, status) | Audit trail |
+If the migration **succeeds**, output a summary of tables created with their columns and indexes.
 
-### Files created/modified:
-- `lib/billing/schema.ts` — All billing table definitions
-- `drizzle/XXXX_add_billing_tables.sql` — Migration file
+If the migration **fails**, show the exact error, diagnose the cause, fix it, and retry. Common fixes:
+- Missing database connection string: check for `DATABASE_URL` in env files
+- Table already exists: use `ALTER TABLE` to add only missing columns
+- Type mismatch: adjust column types to match existing schema conventions
 
-### Key design decisions:
-- All monetary amounts stored in paise (integer) — no floating point
-- `last_event_id` on subscriptions enables webhook idempotency
-- `grace_period_end` + `dunning_emails_sent` support payment failure handling
-- Unique constraints on all Razorpay IDs prevent duplicate records
-- `metadata` JSONB column on subscriptions for flexible plan data
-
-### How to run the migration:
-- Development: `npx drizzle-kit push`
-- Production: `npx drizzle-kit migrate`
-```
-
-Adapt to the actual ORM, file paths, and table counts.
+Do NOT present "how to run the migration" as a manual step. Run it yourself.
 
 ---
 

@@ -12,6 +12,15 @@ Follow these steps in order. Be thorough at each stage before moving to the next
 
 ---
 
+## Decisions This Agent Makes
+
+- **Uses Order + JS SDK flow (not Invoice flow)** — better UX, inline popup
+- **Verifies with RAZORPAY_KEY_SECRET not RAZORPAY_WEBHOOK_SECRET** — different secrets for different flows
+- **Uses timingSafeEqual** — prevents timing attacks on signature verification
+- **Adds Razorpay script via Next.js Script component** — proper loading
+
+---
+
 ## Step 1: Detect project structure
 
 Before writing any code, understand the project you are working in.
@@ -207,34 +216,17 @@ If using Next.js App Router, check `app/layout.tsx` for the Razorpay checkout sc
 
 ---
 
-## Step 7: Report results
+## Step 7: Report and chain to next agent
 
-After creating all files, output a summary in this format:
+After creating all files, output a summary of files created/modified and environment variables needed.
 
-```
-## One-Time Payment Flow Created
+Then say:
 
-### Files created/modified:
-- `lib/razorpay.ts` — Razorpay client singleton (if created)
-- `app/api/billing/create-order/route.ts` — Order creation endpoint
-- `app/api/billing/verify-payment/route.ts` — Payment verification with HMAC
-- `components/billing/OneTimeCheckout.tsx` — Client-side checkout component
-- `lib/billing/grant-purchase.ts` — Day pass / credit grant function
-- `lib/billing/schema.ts` — Database schema additions (if created)
+"Payment flow ready. Want me to add the webhook handler for payment.captured events too?"
 
-### Environment variables needed:
-- `RAZORPAY_KEY_ID` — Your Razorpay API key ID
-- `RAZORPAY_KEY_SECRET` — Your Razorpay API key secret
-- `NEXT_PUBLIC_RAZORPAY_KEY_ID` — Same as RAZORPAY_KEY_ID (exposed to client)
+If the user says yes, tell the parent conversation to invoke the razorpay-webhook agent.
 
-### How to test:
-1. Set environment variables in `.env.local`
-2. Start the dev server
-3. Navigate to a page that uses the `<OneTimeCheckout />` component
-4. Click the payment button — Razorpay test checkout popup should open
-5. Use test card: 4111 1111 1111 1111, any future expiry, any CVV
-6. After payment, the verify endpoint should confirm the signature and grant the purchase
-```
+Do NOT present a numbered list of manual testing steps. Instead, briefly mention the test card number (4111 1111 1111 1111) and that the flow is ready to test.
 
 Adapt the file paths and instructions to match the actual project structure. If any step required changes to existing files (not just new files), mention those changes explicitly.
 
