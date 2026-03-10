@@ -49,87 +49,112 @@
 
   <!-- Terminal window -->
   <rect class="bg" width="800" height="520" rx="10" />
-  <rect class="header" width="800" height="36" rx="10" />
-  <rect class="bg" y="26" width="800" height="10" />
-  <circle class="dot-r" cx="20" cy="18" r="6" />
-  <circle class="dot-y" cx="40" cy="18" r="6" />
-  <circle class="dot-g" cx="60" cy="18" r="6" />
-  <text class="title" x="400" y="22" text-anchor="middle">Claude Code — razorpay-integration-plugin</text>
+
+  <!-- Claude Code header -->
+  <rect class="header" width="800" height="56" rx="10" />
+  <rect class="bg" y="46" width="800" height="10" />
+
+  <!-- Claude ASCII mascot (simplified pixel art) -->
+  <rect x="14" y="10" width="6" height="6" fill="#c4856b" />
+  <rect x="20" y="10" width="6" height="6" fill="#c4856b" />
+  <rect x="26" y="10" width="6" height="6" fill="#c4856b" />
+  <rect x="8" y="16" width="6" height="6" fill="#c4856b" />
+  <rect x="14" y="16" width="6" height="6" fill="#c4856b" />
+  <rect x="20" y="16" width="6" height="6" fill="#c4856b" />
+  <rect x="26" y="16" width="6" height="6" fill="#c4856b" />
+  <rect x="32" y="16" width="6" height="6" fill="#c4856b" />
+  <rect x="8" y="22" width="6" height="6" fill="#c4856b" />
+  <rect x="14" y="22" width="6" height="6" fill="#905a47" />
+  <rect x="20" y="22" width="6" height="6" fill="#c4856b" />
+  <rect x="26" y="22" width="6" height="6" fill="#905a47" />
+  <rect x="32" y="22" width="6" height="6" fill="#c4856b" />
+  <rect x="8" y="28" width="6" height="6" fill="#c4856b" />
+  <rect x="14" y="28" width="6" height="6" fill="#c4856b" />
+  <rect x="20" y="28" width="6" height="6" fill="#c4856b" />
+  <rect x="26" y="28" width="6" height="6" fill="#c4856b" />
+  <rect x="32" y="28" width="6" height="6" fill="#c4856b" />
+  <rect x="14" y="34" width="6" height="6" fill="#c4856b" />
+  <rect x="20" y="34" width="6" height="6" fill="#c4856b" />
+  <rect x="26" y="34" width="6" height="6" fill="#c4856b" />
+
+  <text x="48" y="22" font-size="14" font-weight="bold" fill="#e6edf3">Claude Code</text>
+  <text x="160" y="22" font-size="12" fill="#6e7681">v2.1</text>
+  <text x="48" y="38" font-size="11" fill="#6e7681">Opus 4.6 · ~/my-saas-app</text>
 
   <!-- Line 1: User prompt -->
   <g class="line l1">
-    <text x="20" y="62"><tspan class="prompt">❯ </tspan><tspan class="cmd">/razorpay:setup</tspan></text>
+    <text x="20" y="78"><tspan class="prompt">❯ </tspan><tspan class="cmd">/razorpay:setup</tspan></text>
   </g>
 
   <!-- Line 2-3: Agent thinking -->
   <g class="line l2">
-    <text x="20" y="88" class="dim">  Detecting project structure...</text>
+    <text x="20" y="104" class="dim">  Detecting project structure...</text>
   </g>
   <g class="line l3">
-    <text x="20" y="108"><tspan class="success">  ✓</tspan><tspan class="white"> Next.js App Router detected</tspan></text>
+    <text x="20" y="124"><tspan class="success">  ✓</tspan><tspan class="white"> Next.js App Router detected</tspan></text>
   </g>
   <g class="line l4">
-    <text x="20" y="128"><tspan class="success">  ✓</tspan><tspan class="white"> Drizzle ORM found</tspan></text>
+    <text x="20" y="144"><tspan class="success">  ✓</tspan><tspan class="white"> Drizzle ORM found</tspan></text>
   </g>
   <g class="line l5">
-    <text x="20" y="148"><tspan class="success">  ✓</tspan><tspan class="white"> Clerk auth detected</tspan></text>
+    <text x="20" y="164"><tspan class="success">  ✓</tspan><tspan class="white"> Clerk auth detected</tspan></text>
   </g>
 
   <!-- Line 6: Agent action -->
   <g class="line l6">
-    <text x="20" y="178" class="info">  Installing razorpay SDK...</text>
+    <text x="20" y="194" class="info">  Installing razorpay SDK...</text>
   </g>
   <g class="line l7">
-    <text x="20" y="198"><tspan class="success">  ✓</tspan><tspan class="white"> Created lib/razorpay.ts (singleton + env validation)</tspan></text>
+    <text x="20" y="214"><tspan class="success">  ✓</tspan><tspan class="white"> Created lib/razorpay.ts (singleton + env validation)</tspan></text>
   </g>
   <g class="line l8">
-    <text x="20" y="218"><tspan class="success">  ✓</tspan><tspan class="white"> Created lib/billing/plans.ts (monthly + yearly)</tspan></text>
+    <text x="20" y="234"><tspan class="success">  ✓</tspan><tspan class="white"> Created lib/billing/plans.ts (monthly + yearly)</tspan></text>
   </g>
   <g class="line l9">
-    <text x="20" y="238"><tspan class="success">  ✓</tspan><tspan class="white"> Created db/schema/subscriptions.ts</tspan></text>
+    <text x="20" y="254"><tspan class="success">  ✓</tspan><tspan class="white"> Created db/schema/subscriptions.ts</tspan></text>
   </g>
   <g class="line l10">
-    <text x="20" y="258"><tspan class="success">  ✓</tspan><tspan class="white"> Created db/schema/payments.ts</tspan></text>
+    <text x="20" y="274"><tspan class="success">  ✓</tspan><tspan class="white"> Created db/schema/payments.ts</tspan></text>
   </g>
   <g class="line l11">
-    <text x="20" y="278"><tspan class="success">  ✓</tspan><tspan class="white"> Running migration... done</tspan></text>
+    <text x="20" y="294"><tspan class="success">  ✓</tspan><tspan class="white"> Running migration... done</tspan></text>
   </g>
 
   <!-- Line 12: Plans creation -->
   <g class="line l12">
-    <text x="20" y="308" class="info">  Creating plans via Razorpay API...</text>
+    <text x="20" y="324" class="info">  Creating plans via Razorpay API...</text>
   </g>
   <g class="line l13">
-    <text x="20" y="328"><tspan class="success">  ✓</tspan><tspan class="white"> Monthly plan: plan_test_Mx8kQ4 </tspan><tspan class="dim">(₹499/mo)</tspan></text>
+    <text x="20" y="344"><tspan class="success">  ✓</tspan><tspan class="white"> Monthly plan: plan_test_Mx8kQ4 </tspan><tspan class="dim">(₹499/mo)</tspan></text>
   </g>
   <g class="line l14">
-    <text x="20" y="348"><tspan class="success">  ✓</tspan><tspan class="white"> Yearly plan: plan_test_Yx2pR7 </tspan><tspan class="dim">(₹4,999/yr)</tspan></text>
+    <text x="20" y="364"><tspan class="success">  ✓</tspan><tspan class="white"> Yearly plan: plan_test_Yx2pR7 </tspan><tspan class="dim">(₹4,999/yr)</tspan></text>
   </g>
 
   <!-- Line 15: Webhook -->
   <g class="line l15">
-    <text x="20" y="378" class="info">  Building webhook handler...</text>
+    <text x="20" y="394" class="info">  Building webhook handler...</text>
   </g>
   <g class="line l16">
-    <text x="20" y="398"><tspan class="success">  ✓</tspan><tspan class="white"> Created app/api/billing/webhook/route.ts</tspan></text>
+    <text x="20" y="414"><tspan class="success">  ✓</tspan><tspan class="white"> Created app/api/billing/webhook/route.ts</tspan></text>
   </g>
   <g class="line l17">
-    <text x="20" y="418"><tspan class="dim">    </tspan><tspan class="warn">⚠ Using request.text() for signature (not .json())</tspan></text>
+    <text x="20" y="434"><tspan class="dim">    </tspan><tspan class="warn">⚠ Using request.text() for signature (not .json())</tspan></text>
   </g>
   <g class="line l18">
-    <text x="20" y="438"><tspan class="dim">    </tspan><tspan class="warn">⚠ Only granting access on subscription.activated (not .authenticated)</tspan></text>
+    <text x="20" y="454"><tspan class="dim">    </tspan><tspan class="warn">⚠ Only granting access on subscription.activated (not .authenticated)</tspan></text>
   </g>
 
   <!-- Summary -->
   <g class="line l19">
-    <text x="20" y="468" class="success">  ✓ Setup complete — 8 files created, 1 migration run</text>
+    <text x="20" y="484" class="success">  ✓ Setup complete — 8 files created, 1 migration run</text>
   </g>
   <g class="line l20">
-    <text x="20" y="492"><tspan class="highlight">  → Building checkout flow next...</tspan></text>
+    <text x="20" y="508"><tspan class="highlight">  → Building checkout flow next...</tspan></text>
   </g>
 
   <!-- Blinking cursor -->
   <g class="line l20">
-    <rect class="cursor" x="310" y="482" width="8" height="16" rx="1" />
+    <rect class="cursor" x="310" y="498" width="8" height="16" rx="1" />
   </g>
 </svg>
