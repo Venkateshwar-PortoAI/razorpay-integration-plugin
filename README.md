@@ -79,7 +79,7 @@ Claude:  Issues refund via Razorpay API -> done
 | **Setup** | `/razorpay:setup` | SDK, env vars, DB schema, plan config — asks for keys and does everything |
 | **Subscription** | `/razorpay:subscription` | Hosted checkout, customer upsert, popup fallback, visibility polling |
 
-<details>
+<details open>
 <summary><b>See it in action</b></summary>
 <br>
 <div align="center">
