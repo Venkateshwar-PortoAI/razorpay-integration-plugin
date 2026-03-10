@@ -125,7 +125,7 @@ async function handleEvent(
     case "subscription.activated": {
       await activateSubscription(subscription, entity, eventId);
       if (eventType === "subscription.activated" && payment) {
-        await createGstInvoice(payment); // Non-blocking
+        await createGstInvoice(payment, subscription); // Non-blocking — calls Razorpay Invoice API
       }
       break;
     }
@@ -134,7 +134,7 @@ async function handleEvent(
     case "subscription.charged": {
       // This is a renewal payment — mark active, create GST invoice
       await updateSubscriptionStatus(subscription, "active", entity, eventId);
-      if (payment) await createGstInvoice(payment);
+      if (payment) await createGstInvoice(payment, subscription);
       break;
     }
 
@@ -305,8 +305,11 @@ if (!subscription && entity?.notes?.userId && entity?.notes?.planKey) {
 
 ## GST Invoice Creation (Non-Blocking)
 
+Razorpay subscription payments do NOT auto-generate GST invoices. You must create them yourself
+via the Razorpay Invoice API with proper line items (base amount, CGST, SGST as separate items).
+
 ```typescript
-async function createGstInvoice(payment: any) {
+async function createGstInvoice(payment: any, subscription: any) {
   try {
     const amountPaise = payment.amount;
     const basePaise = Math.round(amountPaise / 1.18);
@@ -314,8 +317,41 @@ async function createGstInvoice(payment: any) {
     const cgstPaise = Math.floor(gstPaise / 2);
     const sgstPaise = gstPaise - cgstPaise;
 
+    // Create invoice via Razorpay Invoice API — subscriptions don't auto-generate GST invoices
+    const invoice = await razorpay.invoices.create({
+      type: "invoice",
+      customer_id: subscription?.razorpayCustomerId,
+      line_items: [
+        {
+          name: "Subscription - Base Amount",
+          amount: basePaise,
+          currency: "INR",
+          quantity: 1,
+        },
+        {
+          name: "CGST @ 9%",
+          amount: cgstPaise,
+          currency: "INR",
+          quantity: 1,
+        },
+        {
+          name: "SGST @ 9%",
+          amount: sgstPaise,
+          currency: "INR",
+          quantity: 1,
+        },
+      ],
+      notes: {
+        paymentId: payment.id,
+        subscriptionId: payment.subscription_id,
+        sacCode: "998314",
+      },
+    });
+
+    // Store in DB with Razorpay invoice ID
     await db.insert(gstInvoices).values({
       userId: payment.notes?.userId,
+      razorpayInvoiceId: invoice.id,
       razorpayPaymentId: payment.id,
       razorpaySubscriptionId: payment.subscription_id,
       amountPaise,

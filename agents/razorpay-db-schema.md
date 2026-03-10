@@ -19,6 +19,8 @@ Follow these steps in order. Be thorough at each stage before moving to the next
 - **Adds indexes on userId and razorpaySubscriptionId** — webhook lookups must be fast
 - **Uses UUID primary keys by default** — matches modern conventions
 - **Creates both subscriptions and invoices tables** — invoices are required for Indian businesses (GST)
+- **Multiple subscriptions per user are normal** — when users change plans, both old and new subscriptions coexist in Razorpay until the old one is explicitly cancelled. Never assume one-to-one between users and subscriptions. Access checks should look for ANY active subscription.
+- **Invoices table stores Razorpay Invoice API IDs** — the `razorpay_invoice_id` links to invoices created via `razorpay.invoices.create()`, which is a separate API entity from subscriptions. Subscription payments do NOT auto-generate invoices.
 
 ---
 
@@ -59,9 +61,10 @@ This is the core billing table. Generate it using the detected ORM's idiom.
 **For Drizzle (PostgreSQL):**
 
 ```typescript
+// NOTE: userId is NOT unique — multiple subscriptions per user are normal (plan changes, etc.)
 export const subscriptions = pgTable("subscriptions", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().unique(),
+  userId: text("user_id").notNull(),
   razorpaySubscriptionId: text("razorpay_subscription_id").notNull().unique(),
   razorpayPlanId: text("razorpay_plan_id").notNull(),
   razorpayCustomerId: text("razorpay_customer_id"),
@@ -93,7 +96,7 @@ export const subscriptions = pgTable("subscriptions", {
 ```prisma
 model Subscription {
   id                      Int       @id @default(autoincrement())
-  userId                  String    @unique
+  userId                  String    // NOT unique — multiple subscriptions per user are normal
   razorpaySubscriptionId  String    @unique @map("razorpay_subscription_id")
   razorpayPlanId          String    @map("razorpay_plan_id")
   razorpayCustomerId      String?   @map("razorpay_customer_id")
@@ -119,7 +122,7 @@ model Subscription {
 ```sql
 CREATE TABLE subscriptions (
   id SERIAL PRIMARY KEY,
-  user_id TEXT NOT NULL UNIQUE,
+  user_id TEXT NOT NULL,  -- NOT unique: multiple subscriptions per user are normal (plan changes)
   razorpay_subscription_id TEXT NOT NULL UNIQUE,
   razorpay_plan_id TEXT NOT NULL,
   razorpay_customer_id TEXT,
@@ -147,13 +150,15 @@ Adapt the user ID type based on what was detected in Step 1c.
 
 ## Step 3: Generate the GST invoices table
 
+Invoices are a **separate API entity** in Razorpay. Subscription payments do NOT auto-generate invoices. You must create them via `razorpay.invoices.create()` with proper line items. The `razorpayInvoiceId` column stores the ID from the Razorpay Invoice API, and `shortUrl` stores the Razorpay-hosted invoice page URL for customer download.
+
 ```typescript
 export const gstInvoices = pgTable("gst_invoices", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(),
   invoiceNumber: text("invoice_number").notNull().unique(),
   razorpayPaymentId: text("razorpay_payment_id").notNull().unique(),
-  razorpayInvoiceId: text("razorpay_invoice_id"),
+  razorpayInvoiceId: text("razorpay_invoice_id"),  // From Razorpay Invoice API (razorpay.invoices.create())
   razorpaySubscriptionId: text("razorpay_subscription_id"),
   razorpayOrderId: text("razorpay_order_id"),
   totalAmount: integer("total_amount").notNull(), // paise

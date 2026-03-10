@@ -118,7 +118,7 @@ These aren't docs rewritten by AI. These are patterns extracted from a productio
 - **Customer portal** — self-service billing page (Razorpay doesn't have a built-in one)
 - **Production hardening** — security checklist, rate limiting, compliance, monitoring
 - **12 webhook events** handled with race condition guards
-- **GST invoice math** with CGST/SGST breakout (required for Indian businesses)
+- **GST invoice generation** via Razorpay Invoice API with CGST/SGST line items (Razorpay subscriptions don't handle GST)
 - **Razorpay SDK TypeScript quirks** documented and solved
 - **Timing-safe signature comparison** using `crypto.timingSafeEqual()`
 

@@ -78,7 +78,7 @@ CREATE INDEX idx_sub_rzp ON subscriptions(razorpay_subscription_id);
 CREATE TABLE gst_invoices (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id VARCHAR NOT NULL,
-  razorpay_invoice_id VARCHAR UNIQUE,
+  razorpay_invoice_id VARCHAR UNIQUE,     -- From Razorpay Invoice API (razorpay.invoices.create())
   razorpay_payment_id VARCHAR NOT NULL,
   razorpay_subscription_id VARCHAR,
   type VARCHAR NOT NULL,                  -- "subscription" | "one_time"
@@ -87,9 +87,12 @@ CREATE TABLE gst_invoices (
   base_paise INTEGER NOT NULL,            -- amount / 1.18
   cgst_paise INTEGER NOT NULL,            -- (amount - base) / 2
   sgst_paise INTEGER NOT NULL,            -- (amount - base) / 2
+  short_url VARCHAR,                      -- Razorpay-hosted invoice page URL from Invoice API
   created_at TIMESTAMP DEFAULT NOW()
 );
 ```
+
+**NOTE**: The `razorpay_invoice_id` column stores the ID returned by the Razorpay Invoice API (`razorpay.invoices.create()`). Subscription payments do NOT auto-generate invoices — you must create them yourself via the Invoice API with proper line items (base amount, CGST, SGST). The `short_url` field stores the Razorpay-hosted invoice page URL for customer download.
 
 ## Step 5: Plan ID Management
 
@@ -158,3 +161,6 @@ curl -u rzp_test_key:rzp_test_secret \
 3. **Webhook secret is separate**: Not the same as API secret
 4. **Phone normalization**: Strip non-digits before passing to Razorpay: `phone.replace(/[^\d+]/g, "")`
 5. **`fail_existing: 0` TypeScript quirk**: Cast as `0 as 0 | 1` to satisfy TypeScript types
+6. **Razorpay subscriptions do NOT include GST**: Razorpay charges the plan amount as-is. You must calculate and display GST yourself (18% for SaaS, SAC code 998314)
+7. **Invoices must be created via Razorpay Invoice API**: Subscription payments do NOT auto-generate GST invoices. You must call `razorpay.invoices.create()` with line items for base amount, CGST, and SGST
+8. **Multiple subscriptions per user can exist**: When a user changes plans, both old and new subscriptions coexist in Razorpay until the old one is explicitly cancelled. Never assume one subscription per user — always check for ANY active subscription

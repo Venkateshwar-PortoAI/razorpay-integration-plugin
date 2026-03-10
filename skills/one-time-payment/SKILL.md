@@ -141,6 +141,8 @@ const expectedSignature = crypto
 
 ## GST Calculation (18%)
 
+**IMPORTANT**: Razorpay does NOT calculate GST for you — not for subscriptions, not for one-time payments. Your displayed price should include GST, and you must break it out yourself for invoicing. To create a proper GST invoice, use the Razorpay Invoice API (`razorpay.invoices.create()`) with separate line items for base amount, CGST, and SGST.
+
 ```typescript
 function calculateGst(amountPaise: number) {
   const basePaise = Math.round(amountPaise / 1.18);

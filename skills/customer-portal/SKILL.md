@@ -222,7 +222,7 @@ export async function POST(request: Request) {
 
 ## 4. Invoice / Receipt Download
 
-Razorpay generates invoices for subscriptions automatically. Fetch and redirect to the Razorpay-hosted invoice page.
+Razorpay does NOT auto-generate invoices for subscription payments. You must create them via the Razorpay Invoice API (`razorpay.invoices.create()`) — see the webhook handler's `createGstInvoice()` function. Once created, each invoice has a `short_url` for a Razorpay-hosted invoice page. Store the `razorpay_invoice_id` and `short_url` in your DB when creating the invoice.
 
 ```typescript
 // app/api/billing/invoice/[invoiceId]/route.ts
@@ -236,6 +236,18 @@ export async function GET(
   if (!user) return new Response("Unauthorized", { status: 401 });
 
   try {
+    // First check our DB for the stored invoice (includes short_url from Invoice API)
+    const dbInvoice = await getInvoiceByRazorpayId(params.invoiceId);
+    if (dbInvoice && dbInvoice.userId !== user.id) {
+      return new Response("Not found", { status: 404 });
+    }
+
+    // If we have a short_url stored from when we created the invoice via Invoice API, use it
+    if (dbInvoice?.shortUrl) {
+      return Response.redirect(dbInvoice.shortUrl, 302);
+    }
+
+    // Fallback: fetch from Razorpay Invoice API and redirect to short_url
     const invoice = await razorpay.invoices.fetch(params.invoiceId);
 
     // Verify this invoice belongs to the user's subscription
@@ -246,7 +258,7 @@ export async function GET(
       return new Response("Not found", { status: 404 });
     }
 
-    // Razorpay invoices have a short_url — redirect user to hosted invoice
+    // Razorpay Invoice API invoices have a short_url — redirect user to hosted invoice page
     if (invoice.short_url) {
       return Response.redirect(invoice.short_url, 302);
     }
@@ -657,7 +669,7 @@ export function BillingPortal() {
 
 1. **`current_end` is Unix seconds**: Razorpay returns timestamps as Unix seconds, not milliseconds. Multiply by 1000 before passing to `new Date()`.
 2. **Cancelled subscriptions stay active until period end**: After calling `cancel(id, true)`, the subscription status may still show `active` on Razorpay's side until the period ends. Show the user their access expiry date clearly.
-3. **Razorpay invoices may not exist for all payments**: Not every subscription payment generates an invoice object in the Razorpay API. Handle missing invoices gracefully — show "No invoice available" instead of erroring.
+3. **Razorpay does NOT auto-generate invoices for subscription payments**: You must create invoices yourself via the Razorpay Invoice API (`razorpay.invoices.create()`) with proper GST line items. Store the `razorpay_invoice_id` and `short_url` in your DB. If an invoice wasn't created for a payment, show "No invoice available" instead of erroring.
 4. **Rate limit your billing status endpoint**: The `/api/billing/status` route calls the Razorpay API on every request. Add caching (e.g., 60-second TTL) or read from your DB instead of hitting Razorpay directly.
 5. **Cache plan details**: Plan name, amount, and currency almost never change. Fetch once and cache, or store in your DB when the subscription is created.
 6. **`cancel(id, true)` not `cancel(id, { at_cycle_end: true })`**: The second parameter to `razorpay.subscriptions.cancel()` is a boolean, not an options object. The SDK types may be misleading.
