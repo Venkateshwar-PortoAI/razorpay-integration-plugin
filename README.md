@@ -78,21 +78,18 @@ Claude:  Issues refund via Razorpay API -> done
 |-------|---------|-------------|
 | **Setup** | `/razorpay:setup` | SDK, env vars, DB schema, plan config — asks for keys and does everything |
 | **Subscription** | `/razorpay:subscription` | Hosted checkout, customer upsert, popup fallback, visibility polling |
-
-<details open>
-<summary><b>See it in action</b></summary>
-<br>
-<div align="center">
-<img src="assets/demo-subscription.svg" alt="Demo: /razorpay:subscription" width="700" />
-</div>
-<br>
-</details>
-
 | **Webhook** | `/razorpay:webhook` | Signature verification, 12+ events, idempotency, optimistic locking |
 | **Plan Change** | `/razorpay:plan-change` | Upgrade/downgrade with deferred cancellation (zero downtime) |
 | **One-Time Payment** | `/razorpay:one-time-payment` | Orders, JS SDK checkout, HMAC verification, day passes |
 | **Refund** | `/razorpay:refund` | Full/partial refunds, refund webhooks, status tracking |
 | **Customer Portal** | `/razorpay:customer-portal` | Self-service billing, cancel flow, invoice download, payment update |
+
+<details open>
+<summary><b>See /razorpay:subscription in action</b></summary>
+<br>
+<img src="assets/demo-subscription.svg" alt="Demo: /razorpay:subscription" width="700" />
+<br>
+</details>
 
 ### Operate
 
