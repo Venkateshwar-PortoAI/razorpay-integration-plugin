@@ -2,9 +2,7 @@
 
 <br>
 
-<a href="https://portoai.co"><img src="assets/portoai-logo.png" alt="PortoAI" width="48" height="48" /></a> &nbsp;**PortoAI**
-&nbsp;&nbsp;🤝&nbsp;&nbsp;
-<img src="assets/razorpay-logo.svg" alt="Razorpay" height="48" />
+<a href="https://portoai.co"><img src="assets/portoai-logo.png" alt="PortoAI" width="36" height="36" /></a> **PortoAI** &nbsp;🤝&nbsp; <img src="assets/razorpay-logo.svg" alt="Razorpay" height="22" />
 
 # Razorpay Integration Plugin for Claude Code
 
