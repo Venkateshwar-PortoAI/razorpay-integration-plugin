@@ -8,7 +8,6 @@ argument-hint: "[monthly|yearly|setup]"
 
 Build a production-grade subscription creation flow. This handles customer creation, duplicate prevention, hosted checkout, and popup-blocked fallback.
 
-Base directory for reference files: ${CLAUDE_SKILL_DIR}
 
 ## Architecture: Hosted Checkout (Not JS SDK)
 

@@ -7,13 +7,14 @@ Stop fighting Razorpay's undocumented quirks. This plugin gives Claude the patte
 ## Install
 
 ```bash
-claude /plugin install github:venkatporto/razorpay-integration-plugin
-```
-
-Or test locally:
-```bash
+# Clone and load locally
 git clone https://github.com/venkatporto/razorpay-integration-plugin.git
 claude --plugin-dir ./razorpay-integration-plugin
+```
+
+Or if available via a plugin marketplace:
+```bash
+/plugin install razorpay
 ```
 
 ## Skills

@@ -8,7 +8,6 @@ argument-hint: "[subscriptions|payments|all]"
 
 Build a webhook handler that survives production chaos: duplicate events, race conditions, out-of-order delivery, and partial failures.
 
-Base directory for reference files: ${CLAUDE_SKILL_DIR}
 
 ## Critical Rules
 

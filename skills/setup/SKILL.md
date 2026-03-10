@@ -8,7 +8,6 @@ argument-hint: "[framework]"
 
 You are setting up Razorpay payment integration. Follow these steps precisely.
 
-Base directory for reference files: ${CLAUDE_SKILL_DIR}
 
 ## Step 1: Install Dependencies
 
