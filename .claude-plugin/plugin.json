@@ -1,0 +1,25 @@
+{
+  "name": "razorpay",
+  "description": "Production-grade Razorpay integration for Next.js — subscriptions, webhooks, plan changes, one-time payments, GST invoicing. Battle-tested patterns from portoai.co.",
+  "version": "1.0.0",
+  "author": {
+    "name": "PortoAI",
+    "url": "https://portoai.co"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/venkatporto/razorpay-integration-plugin"
+  },
+  "license": "MIT",
+  "homepage": "https://portoai.co",
+  "keywords": [
+    "razorpay",
+    "payments",
+    "subscriptions",
+    "webhooks",
+    "next.js",
+    "india",
+    "gst",
+    "billing"
+  ]
+}

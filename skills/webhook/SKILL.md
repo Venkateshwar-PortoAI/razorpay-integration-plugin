@@ -1,0 +1,365 @@
+---
+name: webhook
+description: Build a production-grade Razorpay webhook handler — signature verification, idempotency, 12+ event types, race condition handling, optimistic locking. Use when implementing webhook processing for payments or subscriptions.
+argument-hint: "[subscriptions|payments|all]"
+---
+
+# Razorpay Webhook Handler
+
+Build a webhook handler that survives production chaos: duplicate events, race conditions, out-of-order delivery, and partial failures.
+
+Base directory for reference files: ${CLAUDE_SKILL_DIR}
+
+## Critical Rules
+
+1. **Always return 200** for events you don't handle — Razorpay retries on non-2xx
+2. **Verify signature FIRST** before any processing
+3. **Idempotency is mandatory** — Razorpay uses at-least-once delivery
+4. **Never trust event order** — `subscription.charged` may arrive before `subscription.activated`
+
+## Signature Verification
+
+```typescript
+import crypto from "crypto";
+
+function verifyWebhookSignature(rawBody: string, signature: string, secret: string): boolean {
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(rawBody)
+    .digest("hex");
+
+  // MUST use timing-safe comparison to prevent timing attacks
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(expected, "hex"),
+      Buffer.from(signature, "hex")
+    );
+  } catch {
+    return false; // Length mismatch = invalid
+  }
+}
+```
+
+## Full Webhook Route
+
+```typescript
+// app/api/billing/webhook/route.ts
+import crypto from "crypto";
+
+export async function POST(request: Request) {
+  // 1. Read raw body (NOT parsed JSON — signature is computed on raw string)
+  const rawBody = await request.text();
+  const signature = request.headers.get("x-razorpay-signature");
+
+  if (!signature) {
+    return new Response("Missing signature", { status: 400 });
+  }
+
+  // 2. Verify signature
+  const isValid = verifyWebhookSignature(
+    rawBody,
+    signature,
+    process.env.RAZORPAY_WEBHOOK_SECRET!
+  );
+
+  if (!isValid) {
+    return new Response("Invalid signature", { status: 400 });
+  }
+
+  // 3. Parse event
+  const event = JSON.parse(rawBody);
+  const eventType = event.event;
+
+  // 4. Extract event ID (prefer header over payload)
+  const eventId = request.headers.get("x-razorpay-event-id") || event.id || null;
+
+  // 5. Extract subscription ID (multi-path — different event types store it differently)
+  const subscriptionId = extractSubscriptionId(event);
+  if (!subscriptionId) {
+    // Non-subscription event (standalone payment, order, etc.) — acknowledge and skip
+    return new Response("OK", { status: 200 });
+  }
+
+  // 6. Idempotency check
+  const subscription = await getSubscriptionByRazorpayId(subscriptionId);
+  if (subscription?.lastEventId === eventId && eventId) {
+    return new Response("Already processed", { status: 200 });
+  }
+
+  // 7. Handle event
+  try {
+    await handleEvent(eventType, event, subscription, eventId);
+  } catch (error) {
+    console.error("Webhook processing error:", error);
+    // Still return 200 to prevent retries on app errors
+    // Log for manual investigation
+  }
+
+  return new Response("OK", { status: 200 });
+}
+
+// Subscription ID lives in different places depending on event type
+function extractSubscriptionId(event: any): string | null {
+  return (
+    event.payload?.subscription?.entity?.id ||
+    event.payload?.payment?.entity?.subscription_id ||
+    event.payload?.invoice?.entity?.subscription_id ||
+    null
+  );
+}
+```
+
+## Event Handler
+
+```typescript
+async function handleEvent(
+  eventType: string,
+  event: any,
+  subscription: Subscription | null,
+  eventId: string | null
+) {
+  const entity = event.payload?.subscription?.entity;
+  const payment = event.payload?.payment?.entity;
+
+  switch (eventType) {
+    // ── Activation Events ──────────────────────────────────
+    case "subscription.authenticated":
+    case "subscription.activated": {
+      await activateSubscription(subscription, entity, eventId);
+      if (eventType === "subscription.activated" && payment) {
+        await createGstInvoice(payment); // Non-blocking
+      }
+      break;
+    }
+
+    // ── Renewal ────────────────────────────────────────────
+    case "subscription.charged": {
+      // This is a renewal payment — mark active, create GST invoice
+      await updateSubscriptionStatus(subscription, "active", entity, eventId);
+      if (payment) await createGstInvoice(payment);
+      break;
+    }
+
+    // ── Pending (careful — don't downgrade from active) ───
+    case "subscription.pending": {
+      if (subscription?.status === "active") {
+        // Already active — don't downgrade to pending
+        return;
+      }
+      await updateSubscriptionStatus(subscription, "pending", entity, eventId);
+      break;
+    }
+
+    // ── Pause / Resume ─────────────────────────────────────
+    case "subscription.paused": {
+      await updateSubscriptionStatus(subscription, "paused", entity, eventId);
+      await revokeAccessIfNoOtherSubs(subscription);
+      break;
+    }
+    case "subscription.resumed": {
+      await updateSubscriptionStatus(subscription, "active", entity, eventId);
+      await grantAccess(subscription);
+      break;
+    }
+
+    // ── Cancellation / Completion / Halt ───────────────────
+    case "subscription.cancelled":
+    case "subscription.completed":
+    case "subscription.halted": {
+      const status = eventType.split(".")[1]; // "cancelled" | "completed" | "halted"
+      await updateSubscriptionStatus(subscription, status, entity, eventId);
+      await revokeAccessIfNoOtherSubs(subscription);
+      break;
+    }
+
+    // ── Plan Change Detection ──────────────────────────────
+    case "subscription.updated": {
+      if (entity?.plan_id) {
+        const newPlanKey = planKeyFor(entity.plan_id);
+        if (newPlanKey && subscription) {
+          await updateSubscriptionPlan(subscription, newPlanKey, entity.plan_id);
+        }
+      }
+      break;
+    }
+
+    // ── Payment Failures ───────────────────────────────────
+    case "payment.failed": {
+      if (subscription) {
+        await updateSubscriptionStatus(subscription, "halted", entity, eventId);
+        // Only revoke if this is a renewal failure (not initial payment)
+        if (subscription.status === "active") {
+          await revokeAccessIfNoOtherSubs(subscription);
+        }
+      }
+      break;
+    }
+
+    // ── Fallback Authorization ─────────────────────────────
+    case "payment.authorized": {
+      // Late authorization — activate if still in authenticated state
+      if (subscription?.status === "authenticated") {
+        await activateSubscription(subscription, entity, eventId);
+      }
+      break;
+    }
+
+    default:
+      // Unknown event — acknowledge, don't process
+      break;
+  }
+}
+```
+
+## Optimistic Locking Pattern
+
+Prevent race conditions when two webhook events arrive simultaneously:
+
+```typescript
+async function updateSubscriptionStatus(
+  subscription: Subscription | null,
+  newStatus: string,
+  entity: any,
+  eventId: string | null
+) {
+  if (!subscription) return;
+
+  // Extract current period end (Razorpay uses different field names)
+  const periodEnd = entity?.current_period_end || entity?.current_end || entity?.end_at;
+  const currentPeriodEnd = periodEnd ? new Date(periodEnd * 1000) : null;
+
+  // Optimistic lock: only update if lastEventId matches what we read
+  const updated = await db
+    .update(subscriptions)
+    .set({
+      status: newStatus,
+      currentPeriodEnd,
+      lastEventId: eventId,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(subscriptions.id, subscription.id),
+        // Optimistic lock — fails if another webhook updated first
+        subscription.lastEventId
+          ? eq(subscriptions.lastEventId, subscription.lastEventId)
+          : isNull(subscriptions.lastEventId)
+      )
+    );
+
+  if (!updated.rowCount) {
+    // Optimistic lock failed — re-read and check
+    const fresh = await getSubscriptionByRazorpayId(subscription.razorpaySubscriptionId);
+    if (fresh?.lastEventId === eventId) {
+      return; // Already processed by the other webhook — safe to skip
+    }
+    // Different event won the race — retry without optimistic lock
+    // (This event is newer, so it should win)
+    await db
+      .update(subscriptions)
+      .set({ status: newStatus, currentPeriodEnd, lastEventId: eventId, updatedAt: new Date() })
+      .where(eq(subscriptions.id, subscription.id));
+  }
+}
+```
+
+## Access Revocation Guard
+
+When cancelling/pausing, check if user has OTHER active subscriptions:
+
+```typescript
+async function revokeAccessIfNoOtherSubs(subscription: Subscription | null) {
+  if (!subscription) return;
+  const hasOther = await hasActiveSubscription(subscription.userId);
+  if (!hasOther) {
+    await revokeAccess(subscription.userId);
+  }
+}
+```
+
+Why: Users can have multiple subscriptions (e.g., day pass + monthly). Only revoke when ALL are inactive.
+
+## Auto-Create from Webhook (Plan Changes)
+
+When a plan change webhook arrives but the new subscription isn't in the DB yet:
+
+```typescript
+// Inside subscription.activated handler
+if (!subscription && entity?.notes?.userId && entity?.notes?.planKey) {
+  // Webhook-driven plan change — auto-create DB row
+  subscription = await createSubscriptionRecord({
+    userId: entity.notes.userId,
+    planKey: entity.notes.planKey,
+    razorpaySubscriptionId: entity.id,
+    razorpayPlanId: entity.plan_id,
+    status: "active",
+  });
+
+  // Cancel old subscription if noted
+  if (entity.notes.replacesSubscription) {
+    try {
+      await razorpay.subscriptions.cancel(entity.notes.replacesSubscription, true);
+    } catch { /* Best-effort */ }
+    await markSubscriptionCancelled(entity.notes.replacesSubscription);
+  }
+}
+```
+
+## GST Invoice Creation (Non-Blocking)
+
+```typescript
+async function createGstInvoice(payment: any) {
+  try {
+    const amountPaise = payment.amount;
+    const basePaise = Math.round(amountPaise / 1.18);
+    const gstPaise = amountPaise - basePaise;
+    const cgstPaise = Math.floor(gstPaise / 2);
+    const sgstPaise = gstPaise - cgstPaise;
+
+    await db.insert(gstInvoices).values({
+      userId: payment.notes?.userId,
+      razorpayPaymentId: payment.id,
+      razorpaySubscriptionId: payment.subscription_id,
+      amountPaise,
+      basePaise,
+      cgstPaise,
+      sgstPaise,
+    });
+  } catch (error) {
+    // Log but don't block — charge already succeeded
+    console.error("GST invoice creation failed:", error);
+  }
+}
+```
+
+## Events Reference
+
+| Event | When | Action |
+|-------|------|--------|
+| `subscription.authenticated` | User completes first payment | Activate subscription |
+| `subscription.activated` | Subscription becomes active | Activate + GST invoice |
+| `subscription.charged` | Recurring payment succeeds | Mark active (renewal) + GST |
+| `subscription.pending` | Payment attempt pending | Update status (don't downgrade from active) |
+| `subscription.paused` | Admin pauses | Mark paused, maybe revoke access |
+| `subscription.resumed` | Admin resumes | Mark active, restore access |
+| `subscription.cancelled` | User/admin cancels | Mark cancelled, maybe revoke |
+| `subscription.completed` | All cycles done | Mark completed, maybe revoke |
+| `subscription.halted` | Payment failed repeatedly | Mark halted, maybe revoke |
+| `subscription.updated` | Plan changed | Detect new plan_id |
+| `payment.failed` | Payment attempt fails | Mark halted if renewal |
+| `payment.authorized` | Late authorization | Fallback activation |
+
+## Gotchas
+
+1. **Read raw body, not JSON**: Signature is computed on the raw string. Use `request.text()`, not `request.json()`.
+2. **Always return 200**: Even for events you don't handle. Non-2xx triggers retries.
+3. **Event ID sources**: Prefer `x-razorpay-event-id` header over `event.id` in payload.
+4. **`current_period_end` field names**: Try `current_period_end`, then `current_end`, then `end_at`. All are Unix seconds.
+5. **Don't downgrade from active**: `subscription.pending` may arrive after `subscription.activated`. Check current status before updating.
+6. **At-least-once delivery**: The same event may be delivered multiple times. `lastEventId` check is mandatory.
+7. **Race conditions are real**: Two events for the same subscription can arrive within milliseconds. Use optimistic locking.
+8. **Subscription ID location varies**: Different event types put it in different places. Check all three paths.
+
+---
+
+*Powered by [portoai.co](https://portoai.co) — battle-tested in production with thousands of Indian subscribers.*
