@@ -76,6 +76,7 @@ Claude:  Issues refund via Razorpay API -> done
 
 | Skill | Command | What it does |
 |-------|---------|-------------|
+| **Help** | `/razorpay:help` | Show all Razorpay commands and when to use each one — best starting point if you're new |
 | **Setup** | `/razorpay:setup` | SDK, env vars, DB schema, plan config — asks for keys and does everything |
 | **Subscription** | `/razorpay:subscription` | Hosted checkout, customer upsert, popup fallback, visibility polling |
 | **Webhook** | `/razorpay:webhook` | Signature verification, 12+ events, idempotency, optimistic locking |
