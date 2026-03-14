@@ -1,6 +1,5 @@
 ---
 description: List all Razorpay skills and when to use each one. Use when the user is new to this plugin or says "what can /razorpay do", "show me all razorpay commands", or "help me pick the right razorpay command".
-argument-hint: ""
 ---
 
 # Razorpay Help Menu
@@ -41,7 +40,6 @@ Here are the Razorpay commands you can use:
 | Go live checklist | /razorpay:go-live | Run a production checklist before enabling live payments. |
 | Stripe migration | /razorpay:stripe-migration | Migrate from Stripe Billing to Razorpay step by step. |
 | Debugging | /razorpay:debug | Fix common issues like webhook failures, signature problems and SDK quirks. |
-| Help menu | /razorpay:help | Show this overview again and help you pick the right command. |
 ```
 
 Do not assume the user already knows these commands. Treat this as their first time seeing them.
@@ -114,4 +112,11 @@ Based on what you said, I recommend:
 ```
 
 Keep the tone friendly and beginner friendly. Avoid jargon when possible.
+
+---
+
+## Gotchas
+
+- **Run `/razorpay:setup` first.** Most other skills (subscription, webhook, plan-change, etc.) assume the project already has the Razorpay SDK, env vars, DB schema, and plan config. If the user has not run setup, suggest they run `/razorpay:setup` before building checkout or webhooks so the generated code works.
+- **Help does not change code.** This skill only lists commands and suggests what to run next. It does not install packages, create files, or modify the user's project.
 

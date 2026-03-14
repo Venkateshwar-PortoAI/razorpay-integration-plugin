@@ -16,7 +16,7 @@
 Production-grade billing patterns for Indian SaaS — every Razorpay gotcha documented so you don't have to discover them.
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Skills](https://img.shields.io/badge/skills-14-green.svg)](#skills)
+[![Skills](https://img.shields.io/badge/skills-15-green.svg)](#skills)
 [![Agents](https://img.shields.io/badge/agents-9-purple.svg)](#agents)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#contributing)
 
@@ -72,11 +72,16 @@ Claude:  Issues refund via Razorpay API -> done
 
 ## Skills
 
-### Build
+### Getting Started
 
 | Skill | Command | What it does |
 |-------|---------|-------------|
 | **Help** | `/razorpay:help` | Show all Razorpay commands and when to use each one — best starting point if you're new |
+
+### Build
+
+| Skill | Command | What it does |
+|-------|---------|-------------|
 | **Setup** | `/razorpay:setup` | SDK, env vars, DB schema, plan config — asks for keys and does everything |
 | **Subscription** | `/razorpay:subscription` | Hosted checkout, customer upsert, popup fallback, visibility polling |
 | **Webhook** | `/razorpay:webhook` | Signature verification, 12+ events, idempotency, optimistic locking |
