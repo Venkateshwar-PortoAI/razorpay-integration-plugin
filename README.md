@@ -227,6 +227,18 @@ Built for **Next.js** (App Router) but the patterns work with any Node.js backen
 
 ---
 
+## Contributors
+
+Thanks to everyone who's helped make this plugin better!
+
+| Avatar | Contributor | Contribution |
+|--------|------------|-------------|
+| <img src="https://github.com/sanjanakg25.png" width="40" height="40" style="border-radius:50%"> | [@sanjanakg25](https://github.com/sanjanakg25) | `/razorpay:help` skill |
+
+Want to see your name here? PRs welcome!
+
+---
+
 ## Contributing
 
 Found a Razorpay gotcha we missed? PRs welcome. The goal is to document every production edge case so no one else has to discover them the hard way.
