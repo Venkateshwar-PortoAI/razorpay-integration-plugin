@@ -16,7 +16,7 @@
 Production-grade billing patterns for Indian SaaS — every Razorpay gotcha documented so you don't have to discover them.
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Skills](https://img.shields.io/badge/skills-14-green.svg)](#skills)
+[![Skills](https://img.shields.io/badge/skills-15-green.svg)](#skills)
 [![Agents](https://img.shields.io/badge/agents-9-purple.svg)](#agents)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#contributing)
 
@@ -71,6 +71,12 @@ Claude:  Issues refund via Razorpay API -> done
 ---
 
 ## Skills
+
+### Getting Started
+
+| Skill | Command | What it does |
+|-------|---------|-------------|
+| **Help** | `/razorpay:help` | Show all Razorpay commands and when to use each one — best starting point if you're new |
 
 ### Build
 

@@ -1,5 +1,11 @@
 # Release Notes
 
+## Unreleased
+
+- **Getting Started:** `help` — List all Razorpay commands and when to use each; suggest next step for new users.
+
+---
+
 ## v1.0.0 — Initial Release
 
 ### Skills (14)
